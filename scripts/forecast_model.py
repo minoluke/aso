@@ -55,13 +55,13 @@ def forecast_dec_1day(od,wl,lf,cv):
     # and will intermittantly save progress in ../features/
     # trained scikit-learn models will be saved to ../models/*root*/
     te = td.tes[int(cv)]
-    fm.train(ti='2010-01-01', tf='2019-7-31', drop_features=drop_features, retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
+    fm.train(ti='2010-01-01', tf='2022-12-31', drop_features=drop_features, retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
     #fm.train(ti='2010-01-01', tf='2018-12-31', drop_features=drop_features, retrain=True, n_jobs=n_jobs) 
     # run forecast from 2011 to 2020
     # model predictions will be saved to ../predictions/*root*/ 
     
     #ys = fm.forecast(ti='2019-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)    
-    ys = fm.forecast(cv=cv, ti=te-6*month, tf=te+6*month, recalculate=True, n_jobs=n_jobs)  
+    ys = fm.forecast(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
 
     # plot forecast and quality metrics
     # plots will be saved to ../plots/*root*/

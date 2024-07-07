@@ -505,6 +505,7 @@ class ForecastModel(object):
         self.featdir = r'{:s}/features'.format(self.rootdir, self.root)
         self.featfile = r'{:s}/{:s}_features.csv'.format(self.featdir, self.root)
         self.preddir = r'{:s}/predictions/{:s}'.format(self.rootdir, self.root)
+        self.consensusdir = r'{:s}/consensus/'.format(self.rootdir)
     # private helper methods
     def _detect_model(self):
         """ Checks whether and what models have already been run.
@@ -1159,7 +1160,7 @@ class ForecastModel(object):
         consensus = np.mean([ys[col].values for col in ys.columns if 'pred' in col], axis=0)
         forecast = pd.DataFrame(consensus, columns=['consensus'], index=ys.index)
 
-        ob_folder = os.path.join(self.preddir, self.od)
+        ob_folder = os.path.join(self.consensusdir, self.od)
         wl_lfl_folder = os.path.join(ob_folder, f"{self.window}_{self.look_forward}")
         makedir(wl_lfl_folder)
         save_path = os.path.join(wl_lfl_folder, f"{cv}_consensus.csv")
