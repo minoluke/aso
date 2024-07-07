@@ -1064,7 +1064,7 @@ class ForecastModel(object):
         del fM
         gc.collect()
         self._collect_features()
-    def forecast(self,cv=0 ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
+    def forecast(self,cv=0, ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
         """ Use classifier models to forecast eruption likelihood.
 
             Parameters:
