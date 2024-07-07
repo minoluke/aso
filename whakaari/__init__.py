@@ -475,7 +475,7 @@ class ForecastModel(object):
         self.dt = timedelta(days=1.)
         self.dto = (1.-self.overlap)*self.dtw
         self.iw = int(self.window)   
-        self.od = self.od        
+        self.od = od        
         self.io = int(self.overlap*self.iw)      
         if self.io == self.iw: self.io -= 1
 
