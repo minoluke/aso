@@ -453,7 +453,7 @@ class ForecastModel(object):
         plot_feature_correlation
             Corner plot of feature correlation.
     """
-    def __init__(self, window, overlap, look_forward,data_streams, ti=None, tf=None, root=None):
+    def __init__(self, window, overlap, look_forward,data_streams, ti=None, tf=None, root=None, od=None):
         self.window = window
         self.overlap = overlap
         self.look_forward = look_forward
@@ -1159,7 +1159,7 @@ class ForecastModel(object):
         consensus = np.mean([ys[col].values for col in ys.columns if 'pred' in col], axis=0)
         forecast = pd.DataFrame(consensus, columns=['consensus'], index=ys.index)
 
-        ob_folder = os.path.join(self.preddir, self.ob)
+        ob_folder = os.path.join(self.preddir, self.od)
         wl_lfl_folder = os.path.join(ob_folder, f"{self.window}_{self.look_forward}")
         makedir(wl_lfl_folder)
         save_path = os.path.join(wl_lfl_folder, f"{cv}_consensus.csv")
