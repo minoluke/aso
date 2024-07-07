@@ -475,7 +475,7 @@ class ForecastModel(object):
         self.dt = timedelta(days=1.)
         self.dto = (1.-self.overlap)*self.dtw
         self.iw = int(self.window)   
-        self.ob = self.ob        
+        self.od = self.od        
         self.io = int(self.overlap*self.iw)      
         if self.io == self.iw: self.io -= 1
 
@@ -1064,7 +1064,7 @@ class ForecastModel(object):
         del fM
         gc.collect()
         self._collect_features()
-    def forecast(self,cv=cv ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
+    def forecast(self,cv=0 ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
         """ Use classifier models to forecast eruption likelihood.
 
             Parameters:

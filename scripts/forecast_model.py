@@ -26,22 +26,22 @@ def forecast_dec_1day(od,wl,lf,cv):
     td = TremorData()
         
     # construct model object
-    if ob == 'tremor':
+    if od == 'tremor':
         data_streams = ['rsam', 'mf', 'hf', 'dsar']
-    elif ob == 'gas':
+    elif od == 'gas':
         data_streams = ['gas_max', 'gas_min', 'gas_mean', 'gas_number']
-    elif ob == 'magnetic':
+    elif od == 'magnetic':
         data_streams = ['magnetic']
-    elif ob == 'kakou':
+    elif od == 'kakou':
         data_streams = ['kakouwall_temp']
-    elif ob == 'tilt':
+    elif od == 'tilt':
         data_streams = ['tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW']
-    elif ob == 'yudamari':
+    elif od == 'yudamari':
         data_streams = ['yudamari_number', 'yudamari_temp']
     else:
-        raise ValueError("Invalid value for 'ob'")
+        raise ValueError("Invalid value for 'od'")
 
-    fm = ForecastModel(ti='2010-01-01', tf='2022-12-31', window=float(wl), overlap=0.75, look_forward=float(lf), data_streams=data_streams, ob=ob)
+    fm = ForecastModel(ti='2010-01-01', tf='2022-12-31', window=float(wl), overlap=0.75, look_forward=float(lf), data_streams=data_streams, od=od)
     
     # columns to manually drop from feature matrix because they are highly correlated to other 
     # linear regressors
