@@ -1163,6 +1163,7 @@ class ForecastModel(object):
         wl_lfl_folder = os.path.join(ob_folder, f"{self.window}_{self.look_forward}")
         makedir(wl_lfl_folder)
         save_path = os.path.join(wl_lfl_folder, f"{cv}_consensus.csv")
+        forecast.to_csv(save_path, index=True, index_label='time')
         #forecast.to_csv('{:s}/consensus.csv'.format(self.preddir), index=True, index_label='time')
         #forecast.to_csv('/Users/minoluke/Desktop/修士/test/tmp/consensus.csv'.format(self.preddir), index=True, index_label='time')
         # memory management
