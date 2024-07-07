@@ -7,7 +7,13 @@ cvs=(0 1 2 3 4 5)
 
 # それぞれの組み合わせで実行
 for window_length in "${window_lengths[@]}"
-dorforecast_model.py tilt $window_length $look_forward $cv
+do
+    for look_forward in "${look_forwards[@]}"
+    do
+        for cv in "${cvs[@]}"
+        do
+            echo "Running with window_length=${window_length}, look_forward=${look_forward}, cv=${cv}"
+            python forecast_model.py tilt $window_length $look_forward $cv
         done
     done
 done
