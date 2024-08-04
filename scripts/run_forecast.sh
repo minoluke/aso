@@ -6,7 +6,7 @@ mode=$1
 # 定義された値の配列
 window_lengths=(10 30 60 90 120)
 look_forwards=(10 30 60 90 120)
-cvs=(0 1 2 3 4 5)
+cvs=(0 1 2 3 4)
 
 # それぞれの組み合わせで実行
 for window_length in "${window_lengths[@]}"
