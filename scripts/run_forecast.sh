@@ -4,8 +4,8 @@
 mode=$1
 
 # 定義された値の配列
-window_lengths=(10 30 60 90 120)
-look_forwards=(10 30 60 90 120)
+window_lengths=(30 60 90)
+look_forwards=(30 60 90)
 cvs=(0 1 2 3 4)
 
 # それぞれの組み合わせで実行
