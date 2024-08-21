@@ -23,6 +23,7 @@ from scipy.optimize import curve_fit
 from corner import corner
 from functools import partial
 from fnmatch import fnmatch
+import shutil
 
 # ObsPy imports
 try:
