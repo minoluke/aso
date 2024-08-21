@@ -56,7 +56,7 @@ def forecast_dec_1day(od,wl,lf,cv):
     n_jobs = 6
 
     te = td.tes[int(cv)]
-    fm.train(ti='2010-01-01', tf='2022-12-31', drop_features=drop_features, retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
+    fm.train(cv=cv, ti='2010-01-01', tf='2022-12-31', drop_features=drop_features, retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
     #fm.train(ti='2010-01-01', tf='2018-12-31', drop_features=drop_features, retrain=True, n_jobs=n_jobs) 
     
     ys = fm.forecast(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
