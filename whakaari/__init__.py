@@ -23,6 +23,7 @@ from scipy.optimize import curve_fit
 from corner import corner
 from functools import partial
 from fnmatch import fnmatch
+import shutil
 
 # ObsPy imports
 try:
@@ -958,7 +959,7 @@ class ForecastModel(object):
         ti = self.ti_model if ti is None else datetimeify(ti)
         tf = self.tf_model if tf is None else datetimeify(tf)
         return self._load_data(ti, tf)
-    def train(self, ti=None, tf=None, Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0,
+    def train(self, cv=0, ti=None, tf=None, Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0,
             drop_features=[], n_jobs=6, exclude_dates=[], use_only_features=[]):
         """ Construct classifier models.
 
@@ -1065,6 +1066,19 @@ class ForecastModel(object):
         del fM
         gc.collect()
         self._collect_features()
+
+        all_fts_path = os.path.join(self.modeldir, 'all.fts')
+    
+        ob_folder = os.path.join(self.consensusdir, self.od)
+        wl_lfl_folder = os.path.join(ob_folder, f"{self.window}_{self.look_forward}")
+        makedir(wl_lfl_folder)
+        
+        new_all_fts_path = os.path.join(wl_lfl_folder, f"{cv}_all.fts")
+        
+        # ファイルを新しいディレクトリにコピー
+        if os.path.exists(all_fts_path):
+            shutil.copy(all_fts_path, new_all_fts_path)
+        
     def forecast(self,cv=0, ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
         """ Use classifier models to forecast eruption likelihood.
 
