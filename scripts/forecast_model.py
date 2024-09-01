@@ -39,9 +39,9 @@ def forecast_dec_1day(od,wl,lf,cv):
     elif od == 'yudamari':
         data_streams = ['yudamari_number', 'yudamari_temp']
     elif od == 'mid':
-        data_streams = ['rsam', 'mf', 'hf', 'dsar','gas_max', 'gas_min', 'gas_mean', 'gas_number','kakouwall_temp']
+        data_streams = ['rsam', 'mf', 'hf', 'dsar','gas_max', 'gas_min', 'gas_mean', 'gas_number','magnetic','yudamari_number', 'yudamari_temp']
     elif od == 'long':
-        data_streams = ['magnetic','tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW','yudamari_number', 'yudamari_temp']
+        data_streams = ['magnetic','tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW','yudamari_number', 'yudamari_temp','kakouwall_temp','gas_max', 'gas_min', 'gas_mean', 'gas_number']
     elif od == 'all':
         data_streams = ['rsam', 'mf', 'hf', 'dsar','gas_max', 'gas_min', 'gas_mean', 'gas_number','magnetic','kakouwall_temp','tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW','yudamari_number', 'yudamari_temp']
     else:
