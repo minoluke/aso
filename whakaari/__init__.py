@@ -29,12 +29,8 @@ from imblearn.under_sampling import RandomUnderSampler
 # classifier imports
 from sklearn.metrics import matthews_corrcoef
 from sklearn.model_selection import GridSearchCV, ShuffleSplit
-from sklearn.neural_network import MLPClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.linear_model import LogisticRegression
 
 all_classifiers = ['DT']
 _MONTH = timedelta(days=365.25/12)
