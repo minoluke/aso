@@ -1,9 +1,3 @@
-"""Top-level package for whakaari."""
-
-__author__ = """David Dempsey"""
-__email__ = 'd.dempsey@auckland.ac.nz'
-__version__ = '0.1.0'
-
 # general imports
 import os, sys, shutil, warnings, gc, joblib
 import numpy as np
@@ -25,19 +19,6 @@ from functools import partial
 from fnmatch import fnmatch
 import shutil
 
-# ObsPy imports
-try:
-    from obspy.clients.fdsn import Client as FDSNClient 
-    from obspy import UTCDateTime, read_inventory 
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        from obspy.signal.filter import bandpass
-    from obspy.io.mseed import ObsPyMSEEDFilesizeTooSmallError
-    from obspy.clients.fdsn.header import FDSNNoDataException
-    failedobspyimport = False
-except:
-    failedobspyimport = True
-
 # feature recognition imports
 from tsfresh import extract_features, select_features
 from tsfresh.utilities.dataframe_functions import impute
@@ -52,29 +33,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
 
-
-datas = [
-    
-    #'magnetic',
-    #'gas_max',
-    #'gas_min',
-    #'gas_mean',
-    #'gas_number',
-    #'yudamari_number',
-    #'yudamari_temp',
-    'kakouwall_temp',
-    'tilt1_NS',
-    'tilt1_EW',
-    'tilt2_NS',
-    'tilt2_EW'
-]
-
-all_classifiers = ["SVM","KNN",'DT','RF','NN','NB','LR']
+all_classifiers = ['DT']
 _MONTH = timedelta(days=365.25/12)
 _DAY = timedelta(days=1.)
 
@@ -94,12 +56,8 @@ class TremorData(object):
 
         Methods:
         --------
-        update
-            Obtain latest GeoNet data.
         get_data
             Return tremor data in requested date range.
-        plot
-            Plot tremor data.
     """
     def __init__(self):
         self.file = os.sep.join(getfile(currentframe()).split(os.sep)[:-2]+['data','tremor_data.dat'])
@@ -128,35 +86,7 @@ class TremorData(object):
         self.df = pd.read_csv(self.file, index_col=0, parse_dates=[0,], infer_datetime_format=True)
         self.ti = self.df.index[0]
         self.tf = self.df.index[-1]
-    def _compute_transforms(self):
-        """ Compute data transforms.
 
-            Notes:
-            ------
-            Naming convention is *transform_type*_*data_type*, so for example
-            'inv_mf' is "inverse medium frequency or 1/mf. Other transforms are
-            'diff' (derivative), 'log' (base 10 logarithm) and 'stft' (short-time
-            Fourier transform averaged across 40-45 periods).
-        """
-        for col in self.df.columns:
-            if col is 'time': continue
-            # inverse
-            if 'inv_'+col not in self.df.columns:
-                self.df['inv_'+col] = 1./self.df[col]
-            # diff
-            if 'diff_'+col not in self.df.columns:
-                self.df['diff_'+col] = self.df[col].diff()
-                self.df['diff_'+col][0] = 0.
-            # log
-            if 'log_'+col not in self.df.columns:
-                self.df['log_'+col] = np.log10(self.df[col])
-            # stft
-            if 'stft_'+col not in self.df.columns:
-                seg,freq = [12,16]
-                data = pd.Series(np.zeros(seg*6-1))
-                data = data.append(self.df[col], ignore_index=True)
-                Z = abs(stft(data.values, window='nuttall', nperseg=seg*6, noverlap=seg*6-1, boundary=None)[2])
-                self.df['stft_'+col] = np.mean(Z[freq:freq+2,:],axis=0)
     def _is_eruption_in(self, days, from_time):
         """ Binary classification of eruption imminence.
 
@@ -177,68 +107,7 @@ class TremorData(object):
             if 0 < (te-from_time).total_seconds()/(3600*24) < days:
                 return 1.
         return 0.
-    def update(self, ti=None, tf=None):
-        """ Obtain latest GeoNet data.
 
-            Parameters:
-            -----------
-            ti : str, datetime.datetime
-                First date to retrieve data (default is first date data available).
-            tf : str, datetime.datetime
-                Last date to retrieve data (default is current date).
-        """
-        if failedobspyimport:
-            raise ImportError('ObsPy import failed, cannot update data.')
-
-        makedir('_tmp')
-
-        # default data range if not given 
-        ti = ti or datetime(self.tf.year,self.tf.month,self.tf.day,0,0,0)
-        tf = tf or datetime.today() + _DAY
-        
-        ti = datetimeify(ti)
-        tf = datetimeify(tf)
-
-        ndays = (tf-ti).days
-
-        # parallel data collection - creates temporary files in ./_tmp
-        pars = [[i,ti] for i in range(ndays)]
-        p = Pool(6)
-        p.starmap(get_data_for_day, pars)
-        p.close()
-        p.join()
-
-        # special case of no file to update - create new file
-        if not self.exists:
-            shutil.copyfile('_tmp/_tmp_fl_00000.dat',self.file)
-            self.exists = True
-            shutil.rmtree('_tmp')
-            return
-
-        # read temporary files in as dataframes for concatenation with existing data
-        dfs = [self.df[datas]]
-        for i in range(ndays):
-            fl = '_tmp/_tmp_fl_{:05d}.dat'.format(i)
-            if not os.path.isfile(fl): 
-                continue
-            dfs.append(pd.read_csv(fl, index_col=0, parse_dates=[0,], infer_datetime_format=True))
-        shutil.rmtree('_tmp')
-        self.df = pd.concat(dfs)
-
-        # impute missing data using linear interpolation and save file
-        self.df = self.df.loc[~self.df.index.duplicated(keep='last')]
-        self.df = self.df.resample('10T').interpolate('linear')
-
-        # remove artefact in computing dsar
-        """
-        for i in range(1,int(np.floor(self.df.shape[0]/(24*6)))): 
-            ind = i*24*6
-            self.df['dsar'][ind] = 0.5*(self.df['dsar'][ind-1]+self.df['dsar'][ind+1])
-
-        self.df.to_csv(self.file, index=True)
-        self.ti = self.df.index[0]
-        self.tf = self.df.index[-1]
-        """
     def get_data(self, ti=None, tf=None):
         """ Return tremor data in requested date range.
 
@@ -267,76 +136,7 @@ class TremorData(object):
         # subset data
         inds = (self.df.index>=ti)&(self.df.index<tf)
         return self.df.loc[inds]
-    def plot(self, data_streams='rsam', save='tremor_data.png', ylim=[0, 5000]):
-        """ Plot tremor data.
-
-            Parameters:
-            -----------
-            save : str
-                Name of file to save output.
-            data_streams : str, list
-                String or list of strings indicating which data or transforms to plot (see below). 
-            ylim : list
-                Two-element list indicating y-axis limits for plotting.
-                
-            data type options:
-            ------------------
-            rsam - 2 to 5 Hz (Real-time Seismic-Amplitude Measurement)
-            mf - 4.5 to 8 Hz (medium frequency)
-            hf - 8 to 16 Hz (high frequency)
-            dsar - ratio of mf to hf, rolling median over 180 days
-
-            transform options:
-            ------------------
-            inv - inverse, i.e., 1/
-            diff - finite difference derivative
-            log - base 10 logarithm
-            stft - short-time Fourier transform at 40-45 min period
-
-            Example:
-            --------
-            data_streams = ['dsar', 'diff_hf'] will plot the DSAR signal and the derivative of the HF signal.
-        """
-        if type(data_streams) is str:
-            data_streams = [data_streams,]
-        #if any(['_' in ds for ds in data_streams]):self._compute_transforms()
-
-        # set up figures and axes
-        f = plt.figure(figsize=(24,15))
-        N = 10
-        dy1,dy2 = 0.05, 0.05
-        dy3 = (1.-dy1-(N//2)*dy2)/(N//2)
-        dx1,dx2 = 0.43,0.03
-        axs = [plt.axes([0.05+(1-i//(N/2))*(dx1+dx2), dy1+(i%(N/2))*(dy2+dy3), dx1, dy3]) for i in range(N)][::-1]
-        
-        for i,ax in enumerate(axs):
-            ti,tf = [datetime.strptime('{:d}-01-01 00:00:00'.format(2010+i), '%Y-%m-%d %H:%M:%S'),
-                datetime.strptime('{:d}-01-01 00:00:00'.format(2011+i), '%Y-%m-%d %H:%M:%S')]
-            ax.set_xlim([ti,tf])
-            ax.text(0.01,0.95,'{:4d}'.format(2010+i), transform=ax.transAxes, va='top', ha='left', size=16)
-            ax.set_ylim(ylim)
-            
-        # plot data for each year
-        data = self.get_data()
-        xi = datetime(year=1,month=1,day=1,hour=0,minute=0,second=0)
-        cols = ['c','m','y','g',[0.5,0.5,0.5],[0.75,0.75,0.75]]
-        for i,ax in enumerate(axs):
-            if i//(N/2) == 0:
-                ax.set_ylabel('data [nm/s]')
-            else:
-                ax.set_yticklabels([])
-            x0,x1 =[xi+timedelta(days=xl)-_DAY for xl in ax.get_xlim()]
-            inds = (data.index>=x0)&(data.index<=x1)
-            for data_stream, col in zip(data_streams,cols):
-                ax.plot(data.index[inds], data[data_stream].loc[inds], '-', color=col, label=data_stream)
-            
-            for te in self.tes:
-                ax.axvline(te, color='k', linestyle='--', linewidth=2)
-            ax.axvline(te, color='k', linestyle='--', linewidth=2, label='eruption')
-        axs[-1].legend()
-        
-        plt.savefig(save, dpi=400)
-
+  
 class ForecastModel(object):
     """ Object for train and running forecast models.
         
