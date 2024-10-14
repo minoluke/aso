@@ -172,21 +172,10 @@ class ForecastModel(object):
             Beginning of model forecast period.
         tf_forecast : datetime.datetime
             End of model forecast period.
-        drop_features : list
-            List of tsfresh feature names or feature calculators to drop during training.
-            Facilitates manual dropping of correlated features.
         exclude_dates : list
             List of time windows to exclude during training. Facilitates dropping of eruption 
             windows within analysis period. E.g., exclude_dates = [['2012-06-01','2012-08-01'],
             ['2015-01-01','2016-01-01']] will drop Jun-Aug 2012 and 2015-2016 from analysis.
-        use_only_features : list
-            List of tsfresh feature names or calculators that training will be restricted to.
-        compute_only_features : list
-            List of tsfresh feature names or calcluators that feature extraction will be 
-            restricted to.
-        update_feature_matrix : bool
-            Set this True in rare instances you want to extract feature matrix without the code
-            trying first to update it.
         n_jobs : int
             Number of CPUs to use for parallel tasks.
         rootdir : str
@@ -214,30 +203,16 @@ class ForecastModel(object):
             Compute label vector.
         _load_data
             Load feature matrix and label vector.
-        _drop_features
-            Drop columns from feature matrix.
         _exclude_dates
             Drop rows from feature matrix and label vector.
         _collect_features
             Aggregate features used to train classifiers by frequency.
-        _model_alerts
-            Compute issued alerts for model consensus.
         get_features
             Return feature matrix and label vector for a given period.
         train
             Construct classifier models.
         forecast
             Use classifier models to forecast eruption likelihood.
-        hires_forecast
-            Construct forecast at resolution of data.
-        plot_forecast
-            Plot model forecast.
-        plot_accuracy
-            Plot performance metrics for model.
-        plot_features
-            Plot frequency of extracted features by most significant.
-        plot_feature_correlation
-            Corner plot of feature correlation.
     """
     def __init__(self, window, overlap, look_forward,data_streams, ti=None, tf=None, root=None, od=None):
         self.window = window
@@ -272,10 +247,7 @@ class ForecastModel(object):
         self.overlap = self.io*1./self.iw
         self.dto = (1.-self.overlap)*self.dtw
         
-        self.drop_features = []
         self.exclude_dates = []
-        self.use_only_features = []
-        self.compute_only_features = []
         self.update_feature_matrix = True
         self.n_jobs = 6
 
@@ -570,7 +542,7 @@ class ForecastModel(object):
             labels : list
                 Feature names.
             freqs : list
-                Frequency of feature appearance in classifier models.
+                Features appearance in classifier models.
         """
         makedir(self.modeldir)
         if save is None:
@@ -594,7 +566,7 @@ class ForecastModel(object):
         return labels, freqs
         
     # public methods
-    def get_features(self, ti=None, tf=None, n_jobs=1, drop_features=[], compute_only_features=[]):
+    def get_features(self, ti=None, tf=None, n_jobs=1):
         """ Return feature matrix and label vector for a given period.
 
             Parameters:
@@ -616,14 +588,12 @@ class ForecastModel(object):
                 Label vector.
         """
         # initialise training interval
-        self.drop_features = drop_features
-        self.compute_only_features = compute_only_features
         self.n_jobs = n_jobs
         ti = self.ti_model if ti is None else datetimeify(ti)
         tf = self.tf_model if tf is None else datetimeify(tf)
         return self._load_data(ti, tf)
     def train(self, cv=0, ti=None, tf=None, Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0,
-            drop_features=[], n_jobs=6, exclude_dates=[], use_only_features=[]):
+             n_jobs=6, exclude_dates=[]):
         """ Construct classifier models.
 
             Parameters:
@@ -654,8 +624,6 @@ class ForecastModel(object):
             DT - Decision Tree
         """
         self.classifier = classifier
-        self.exclude_dates = exclude_dates
-        self.use_only_features = use_only_features
         self.n_jobs = n_jobs
         makedir(self.modeldir)
 
@@ -680,15 +648,6 @@ class ForecastModel(object):
 
         # get feature matrix and label vector
         fM, ys = self._load_data(self.ti_train, self.tf_train)
-
-        # manually drop features (columns)
-        fM = self._drop_features(fM, drop_features)
-
-        # manually select features (columns)
-        if len(self.use_only_features) != 0:
-            use_only_features = [df for df in self.use_only_features if df in fM.columns]
-            fM = fM[use_only_features]
-            Nfts = len(use_only_features)+1
 
         # manually drop windows (rows)
         fM, ys = self._exclude_dates(fM, ys, exclude_dates)
