@@ -354,11 +354,6 @@ class ForecastModel(object):
 
         # features to compute
         cfp = ComprehensiveFCParameters()
-        if self.compute_only_features:
-            cfp = dict([(k, cfp[k]) for k in cfp.keys() if k in self.compute_only_features])
-        else:
-            # drop features if relevant
-            _ = [cfp.pop(df) for df in self.drop_features if df in list(cfp.keys())]
 
         # check if feature matrix already exists and what it contains
         if os.path.isfile(self.featfile):
@@ -577,8 +572,6 @@ class ForecastModel(object):
                 End of period to extract features (default is end of model analysis).
             n_jobs : int
                 Number of cores to use.
-            compute_only_features : list
-                tsfresh feature names of calculators to return in matrix.
             
             Returns:
             --------
