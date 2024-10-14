@@ -537,35 +537,7 @@ class ForecastModel(object):
         self.fM = fM
         self.ys = ys
         return fM, ys
-    def _drop_features(self, X, drop_features):
-        """ Drop columns from feature matrix.
 
-            Parameters:
-            -----------
-            X : pd.DataFrame
-                Matrix to drop columns.
-            drop_features : list
-                tsfresh feature names or calculators to drop from matrix.
-
-            Returns:
-            --------
-            Xr : pd.DataFrame
-                Reduced matrix.
-        """
-        self.drop_features = drop_features
-        if len(self.drop_features) != 0:
-            cfp = ComprehensiveFCParameters()
-            df2 = []
-            for df in self.drop_features:
-                if df in X.columns:
-                    df2.append(df)          # exact match
-                else:
-                    if df in cfp.keys() or df in ['fft_coefficient_hann']:
-                        df = '*__{:s}__*'.format(df)    # feature calculator
-                    # wildcard match
-                    df2 += [col for col in X.columns if fnmatch(col, df)]              
-            X = X.drop(columns=df2)
-        return X
     def _exclude_dates(self, X, y, exclude_dates):
         """ Drop rows from feature matrix and label vector.
 
@@ -631,99 +603,7 @@ class ForecastModel(object):
         with open(save, 'w') as fp:
             _ = [fp.write('{:d},{:s}\n'.format(freq,ft)) for freq,ft in zip(freqs,labels)]
         return labels, freqs
-    def _model_alerts(self, t, y, threshold, ialert, dti):
-        """ Compute issued alerts for model consensus.
-
-            Parameters:
-            -----------
-            t : array-like
-                Time vector corresponding to model consensus.
-            y : array-like
-                Model consensus.
-            threshold : float
-                Consensus value above which an alert is issued.
-            ialert : int
-                Number of data windows spanning an alert period.
-            dti : datetime.timedelta
-                Length of window overlap.
-
-            Returns:
-            --------
-            false_alert : int
-                Number of falsely issued alerts.
-            missed : int
-                Number of eruptions for which an alert not issued.
-            true_alert : int
-                Number of eruptions for which an alert correctly issued.
-            true_negative : int
-                Equivalent number of time windows in which no alert was issued and no eruption
-                occurred. Each time window has the average length of all issued alerts.
-            dur : float
-                Total alert duration as fraction of model analysis period.
-            mcc : float
-                Matthews Correlation Coefficient.
-        """
-        # create contiguous alert windows
-        inds = np.where(y>threshold)[0]
-
-        if len(inds) == 0:
-            return 0, len(self.data.tes), 0, int(1e8), 0, 0
-
-        dinds = np.where(np.diff(inds)>ialert)[0]
-        alert_windows = list(zip(
-            [inds[0],]+[inds[i+1] for i in dinds],
-            [inds[i]+ialert for i in dinds]+[inds[-1]+ialert]
-            ))
-        alert_window_lengths = [np.diff(aw) for aw in alert_windows]
         
-        # compute true/false positive/negative rates
-        tes = copy(self.data.tes)
-        nes = len(self.data.tes)
-        nalerts = len(alert_windows)
-        true_alert = 0
-        false_alert = 0
-        inalert = 0.
-        missed = 0
-        total_time = (t[-1] - t[0]).total_seconds()
-
-        for i0,i1 in alert_windows:
-
-            inalert += ((i1-i0)*dti).total_seconds()
-            # no eruptions left to classify, only misclassifications now
-            if len(tes) == 0:
-                false_alert += 1
-                continue
-
-            # eruption has been missed
-            while tes[0] < t[i0]:
-                tes.pop(0)
-                missed += 1
-                if len(tes) == 0:
-                    break
-            if len(tes) == 0:
-                continue
-
-            # alert does not contain eruption
-            if not (tes[0] > t[i0] and tes[0] <= (t[i0] + (i1-i0)*dti)):
-                false_alert += 1
-                continue
-
-            # alert contains eruption
-            while tes[0] > t[i0] and tes[0] <= (t[i0] + (i1-i0)*dti):
-                tes.pop(0)
-                true_alert += 1
-                if len(tes) == 0:
-                    break
-
-        # any remaining eruptions after alert windows have cleared must have been missed
-        missed += len(tes)
-        dur = inalert/total_time
-        true_negative = int((len(y)-np.sum(alert_window_lengths))/np.mean(alert_window_lengths))-missed
-        if true_negative < 0:
-            true_negative = 0
-        mcc = matthews_corrcoef(self._ys, (y>threshold)*1.)
-
-        return false_alert, missed, true_alert, true_negative, dur, mcc
     # public methods
     def get_features(self, ti=None, tf=None, n_jobs=1, drop_features=[], compute_only_features=[]):
         """ Return feature matrix and label vector for a given period.
@@ -736,8 +616,6 @@ class ForecastModel(object):
                 End of period to extract features (default is end of model analysis).
             n_jobs : int
                 Number of cores to use.
-            drop_feautres : list
-                tsfresh feature names or calculators to exclude from matrix.
             compute_only_features : list
                 tsfresh feature names of calculators to return in matrix.
             
@@ -775,9 +653,6 @@ class ForecastModel(object):
                 String or list of strings denoting which classifiers to train (see options below.)
             random_seed : int
                 Set the seed for the undersampler, for repeatability.
-            drop_features : list
-                Names of tsfresh features to be dropped prior to training (for manual elimination of 
-                feature correlation.)
             n_jobs : int
                 CPUs to use when training classifiers in parallel.
             exclude_dates : list
@@ -787,13 +662,7 @@ class ForecastModel(object):
 
             Classifier options:
             -------------------
-            SVM - Support Vector Machine.
-            KNN - k-Nearest Neighbors
             DT - Decision Tree
-            RF - Random Forest
-            NN - Neural Network
-            NB - Naive Bayes
-            LR - Logistic Regression
         """
         self.classifier = classifier
         self.exclude_dates = exclude_dates
