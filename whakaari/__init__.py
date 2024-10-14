@@ -18,10 +18,8 @@ from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 from imblearn.under_sampling import RandomUnderSampler
 
 # classifier imports
-from sklearn.metrics import matthews_corrcoef
 from sklearn.model_selection import GridSearchCV, ShuffleSplit
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import GaussianNB
 
 all_classifiers = ['DT']
 _MONTH = timedelta(days=365.25/12)
