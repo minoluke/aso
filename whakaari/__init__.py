@@ -1,9 +1,7 @@
 # general imports
-import os, sys, shutil, warnings, gc, joblib
+import os, sys, shutil, joblib
 import numpy as np
 from datetime import datetime, timedelta, date
-from copy import copy
-from matplotlib import pyplot as plt
 from inspect import getfile, currentframe
 from glob import glob
 import pandas as pd
@@ -17,7 +15,6 @@ from scipy.optimize import curve_fit
 from corner import corner
 from functools import partial
 from fnmatch import fnmatch
-import shutil
 
 # feature recognition imports
 from tsfresh import extract_features, select_features
