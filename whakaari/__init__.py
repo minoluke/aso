@@ -1,15 +1,13 @@
 # general imports
-import os, sys, shutil, joblib
+import os
 import numpy as np
 from datetime import datetime, timedelta, date
-from inspect import getfile, currentframe
+from inspect import currentframe
 from glob import glob
 import pandas as pd
 from pandas._libs.tslibs.timestamps import Timestamp
 from multiprocessing import Pool
 from time import time
-from scipy.integrate import cumtrapz
-from scipy.signal import stft
 from functools import partial
 
 # feature recognition imports
