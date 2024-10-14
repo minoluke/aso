@@ -561,30 +561,6 @@ class ForecastModel(object):
         return labels, freqs
         
     # public methods
-    def get_features(self, ti=None, tf=None, n_jobs=1):
-        """ Return feature matrix and label vector for a given period.
-
-            Parameters:
-            -----------
-            ti : str, datetime.datetime
-                Beginning of period to extract features (default is beginning of model analysis).
-            tf : str, datetime.datetime
-                End of period to extract features (default is end of model analysis).
-            n_jobs : int
-                Number of cores to use.
-            
-            Returns:
-            --------
-            fM : pd.DataFrame
-                Feature matrix.
-            ys : pd.Dataframe
-                Label vector.
-        """
-        # initialise training interval
-        self.n_jobs = n_jobs
-        ti = self.ti_model if ti is None else datetimeify(ti)
-        tf = self.tf_model if tf is None else datetimeify(tf)
-        return self._load_data(ti, tf)
     def train(self, cv=0, ti=None, tf=None, Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0,
              n_jobs=6, exclude_dates=[]):
         """ Construct classifier models.
