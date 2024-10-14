@@ -7,14 +7,10 @@ from glob import glob
 import pandas as pd
 from pandas._libs.tslibs.timestamps import Timestamp
 from multiprocessing import Pool
-from textwrap import wrap
 from time import time
 from scipy.integrate import cumtrapz
 from scipy.signal import stft
-from scipy.optimize import curve_fit
-from corner import corner
 from functools import partial
-from fnmatch import fnmatch
 
 # feature recognition imports
 from tsfresh import extract_features, select_features
