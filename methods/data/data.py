@@ -27,7 +27,7 @@ class TremorData(object):
     """
 
     def __init__(self):
-        base_dir = os.path.dirname(os.path.dirname(getfile(currentframe())))
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(getfile(currentframe()))))
         self.file = os.path.join(base_dir, "data", "tremor_data.dat")
         self._assess()
 
@@ -41,7 +41,7 @@ class TremorData(object):
 
     def _assess(self):
         """Load existing file and check date range of data."""
-        base_dir = os.path.dirname(os.path.dirname(getfile(currentframe())))
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(getfile(currentframe()))))
         eruptive_file_path = os.path.join(base_dir, "data", "eruptive_periods.txt")
 
         # ファイルの存在確認
