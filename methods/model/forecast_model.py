@@ -349,7 +349,7 @@ class ForecastModel(object):
         # Get labels
         ys = pd.DataFrame(
             get_label(self.data.tes, fM.index, self.look_forward),
-            columns=["label"],
             index=fM.index,
+            name="label",
         )
         return fM, ys
