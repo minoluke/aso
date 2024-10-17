@@ -22,6 +22,7 @@ def train(
     retrain=False,
     random_seed=0,
     n_jobs=1,
+    exclude_dates_list=[],
 ):
     """Train classifier models.
 
@@ -141,7 +142,7 @@ def train_one_model(
     _ = joblib.dump(model_cv.best_estimator_, fl, compress=3)
 
 
-def exclude_dates(X, y, exclude_dates):
+def exclude_dates(X, y, exclude_dates_list):
     """Exclude specified date ranges from data.
 
     Parameters:
@@ -150,7 +151,7 @@ def exclude_dates(X, y, exclude_dates):
         Feature matrix.
     y : pd.Series
         Label vector.
-    exclude_dates : list
+    exclude_dates_list : list
         List of date ranges to exclude.
 
     Returns:
@@ -160,8 +161,8 @@ def exclude_dates(X, y, exclude_dates):
     yr : pd.Series
         Reduced label vector.
     """
-    if len(exclude_dates) != 0:
-        for exclude_date_range in exclude_dates:
+    if len(exclude_dates_list) != 0:
+        for exclude_date_range in exclude_dates_list:
             t0, t1 = [datetimeify(dt) for dt in exclude_date_range]
             inds = (y.index < t0) | (y.index >= t1)
             X = X.loc[inds]

@@ -74,7 +74,7 @@ def forecast_dec_1day(od, wl, lf, cv):
         ti='2010-01-01',
         tf='2022-12-31',
         retrain=True,
-        exclude_dates=[[te - 6 * month, te + 6 * month]]
+        exclude_dates_list=[[te - 6 * month, te + 6 * month]]
         # Removed n_jobs parameter
     )
 
