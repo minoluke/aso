@@ -16,3 +16,4 @@ from .train.train import (
 )
 from .test.test import forecast, predict_one_model, detect_model
 from .helper.helper import get_classifier, datetimeify
+from .model.forecast_model import ForecastModel
