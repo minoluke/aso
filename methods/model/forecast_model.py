@@ -331,7 +331,7 @@ class ForecastModel(object):
             )
         else:
             # Construct features
-            cfp = ComprehensiveFCParameters()  # Define your comprehensive feature parameters here
+            cfp = ComprehensiveFCParameters()  # Customize if needed
             data = self.data.get_data(self.ti_model - self.dtw, self.tf_model)
             fM = construct_features(
                 self.ti_model,

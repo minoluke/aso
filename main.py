@@ -58,11 +58,9 @@ def forecast_dec_1day(od, wl, lf, cv):
         data_streams=data_streams,
         ti='2010-01-01',
         tf='2022-12-31',
-        od=od  # Pass the 'od' parameter
+        od=od,  # Pass the 'od' parameter
+        n_jobs=6  # Set number of jobs during initialization
     )
-
-    # Set the available CPUs higher or lower as appropriate
-    n_jobs = 6
 
     # Retrieve the eruption event for the given cv
     try:
@@ -76,8 +74,8 @@ def forecast_dec_1day(od, wl, lf, cv):
         ti='2010-01-01',
         tf='2022-12-31',
         retrain=True,
-        exclude_dates=[[te - 6 * month, te + 6 * month]],
-        n_jobs=n_jobs
+        exclude_dates=[[te - 6 * month, te + 6 * month]]
+        # Removed n_jobs parameter
     )
 
     # Forecast using the trained models
@@ -86,6 +84,7 @@ def forecast_dec_1day(od, wl, lf, cv):
         ti='2010-01-01',
         tf='2022-12-31',
         recalculate=True
+        # Removed n_jobs parameter
     )
 
 
