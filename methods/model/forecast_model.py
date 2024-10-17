@@ -347,7 +347,7 @@ class ForecastModel(object):
             fM.to_csv(self.featfile, index=True, index_label="time")
 
         # Get labels
-        ys = pd.DataFrame(
+        ys = pd.Series(
             get_label(self.data.tes, fM.index, self.look_forward),
             index=fM.index,
         )
