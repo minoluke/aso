@@ -187,7 +187,7 @@ class ForecastModel(object):
         retrain=False,
         classifier="DT",
         random_seed=0,
-        exclude_dates=[],
+        exclude_dates_list=[],
     ):
         """Construct classifier models.
 
@@ -224,7 +224,7 @@ class ForecastModel(object):
         fM, ys = self._load_features_and_labels()
 
         # Exclude specified dates
-        fM, ys = exclude_dates(fM, ys, exclude_dates)
+        fM, ys = exclude_dates(fM, ys, exclude_dates_list)
         if ys.shape[0] != fM.shape[0]:
             raise ValueError("Dimensions of feature matrix and label vector do not match")
 
@@ -244,6 +244,7 @@ class ForecastModel(object):
             retrain=retrain,
             random_seed=random_seed,
             n_jobs=self.n_jobs,
+            exclude_dates_list=exclude_dates_list,
         )
 
         # Collect features
