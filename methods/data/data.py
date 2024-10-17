@@ -56,13 +56,12 @@ class TremorData(object):
                 print(f"Error while reading the file: {e}")
         else:
             print(f"File not found: {eruptive_file_path}")
-            
+
         # Check if data file exists
         self.exists = os.path.isfile(self.file)
         if not self.exists:
             t0 = datetime(2010, 1, 1)
             t1 = datetime(2010, 1, 2)
-            self.update(t0, t1)
         # Check date of latest data in file
         self.df = pd.read_csv(
             self.file, index_col=0, parse_dates=[0], infer_datetime_format=True
