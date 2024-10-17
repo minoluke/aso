@@ -67,7 +67,7 @@ def construct_features(ti, tf, data, cfp, iw, io, dto, n_jobs=1):
     fm : pandas.DataFrame
         Feature matrix over the period.
     """
-    Nw = int(np.floor(((tf - ti) / dto).total_seconds() / (3600 * 24)))
+    Nw = int(np.floor((tf - ti) / dto))
     df, window_dates = construct_windows(Nw, ti, data, iw, io, dto)
     fm = extract_features_func(df, window_dates, cfp, n_jobs)
     return fm
