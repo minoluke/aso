@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 import gc
+import shutil
 from glob import glob
 from datetime import datetime, timedelta
 from functools import partial
@@ -23,6 +24,7 @@ from methods.train.train import (
 )
 from methods.test.test import forecast
 from methods.helper.helper import get_classifier, datetimeify
+from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 
 
 class ForecastModel(object):
@@ -94,7 +96,9 @@ class ForecastModel(object):
 
         # Validate data streams
         if any([d not in self.data.df.columns for d in self.data_streams]):
-            raise ValueError("Data streams restricted to any of {}".format(self.data.df.columns))
+            raise ValueError(
+                "Data streams restricted to any of {}".format(self.data.df.columns)
+            )
 
         # Set analysis period
         if ti is None:
@@ -135,6 +139,9 @@ class ForecastModel(object):
         self.exclude_dates = []
         self.update_feature_matrix = True
 
+        # Define root directory first
+        self.rootdir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
         # Naming convention and file system attributes
         if root is None:
             self.root = "fm_{:3.2f}wndw_{:3.2f}ovlp_{:3.2f}lkfd".format(
@@ -149,18 +156,19 @@ class ForecastModel(object):
         # Use 'od' for organizing save directories
         if od is not None:
             self.od = od
-            self.consensusdir = os.path.join(self.rootdir, "consensus", self.od)
+            self.consensusdir = os.path.join(self.rootdir, "save", "consensus", self.od)
         else:
             self.od = "default"
-            self.consensusdir = os.path.join(self.rootdir, "consensus")
+            self.consensusdir = os.path.join(self.rootdir, "save", "consensus")
 
-        self.rootdir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         self.plotdir = os.path.join(self.rootdir, "save", "figures", self.root)
         self.modeldir = os.path.join(self.rootdir, "save", "rawdata", "model", self.root)
         self.featdir = os.path.join(self.rootdir, "save", "rawdata", "feature")
         self.featfile = os.path.join(self.featdir, "{}_features.csv".format(self.root))
         self.preddir = os.path.join(self.rootdir, "save", "rawdata", "test", self.root)
-        self.consensusdir = os.path.join(self.consensusdir, f"{self.window}_{self.look_forward}")
+        self.consensusdir = os.path.join(
+            self.consensusdir, f"{self.window}_{self.look_forward}"
+        )
 
         # Create necessary directories
         os.makedirs(self.plotdir, exist_ok=True)
@@ -315,7 +323,12 @@ class ForecastModel(object):
         # Check if feature file exists
         if os.path.isfile(self.featfile):
             # Load existing features
-            fM = pd.read_csv(self.featfile, index_col=0, parse_dates=["time"], infer_datetime_format=True)
+            fM = pd.read_csv(
+                self.featfile,
+                index_col=0,
+                parse_dates=["time"],
+                infer_datetime_format=True,
+            )
         else:
             # Construct features
             cfp = ComprehensiveFCParameters()  # Define your comprehensive feature parameters here

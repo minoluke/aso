@@ -4,10 +4,10 @@ import sys
 import argparse
 import shutil
 
-# Ensure the parent directory is in the Python path
+# Ensure the current directory is in the Python path
 sys.path.insert(0, os.path.abspath('.'))
 
-from methods import TremorData, ForecastModel  # Updated import
+from methods import ForecastModel, TremorData
 from datetime import timedelta, datetime
 
 # Suppress warnings from tsfresh and sklearn
@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore", category=FitFailedWarning)
 
 
 def forecast_dec_1day(od, wl, lf, cv):
-    month = timedelta(days=365.25/12)
+    month = timedelta(days=365.25 / 12)
     day = timedelta(days=1)
     td = TremorData()
 
@@ -76,7 +76,7 @@ def forecast_dec_1day(od, wl, lf, cv):
         ti='2010-01-01',
         tf='2022-12-31',
         retrain=True,
-        exclude_dates=[[te - 6*month, te + 6*month]],
+        exclude_dates=[[te - 6 * month, te + 6 * month]],
         n_jobs=n_jobs
     )
 
