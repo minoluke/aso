@@ -27,9 +27,8 @@ class TremorData(object):
     """
 
     def __init__(self):
-        self.file = os.sep.join(
-            getfile(currentframe()).split(os.sep)[:-2] + ["data", "tremor_data.dat"]
-        )
+        base_dir = os.path.dirname(os.path.dirname(getfile(currentframe())))
+        self.file = os.path.join(base_dir, "data", "tremor_data.dat")
         self._assess()
 
     def __repr__(self):
@@ -42,15 +41,22 @@ class TremorData(object):
 
     def _assess(self):
         """Load existing file and check date range of data."""
-        # Get eruptions
-        with open(
-            os.sep.join(
-                getfile(currentframe()).split(os.sep)[:-2]
-                + ["data", "eruptive_periods.txt"]
-            ),
-            "r",
-        ) as fp:
-            self.tes = [datetimeify(ln.rstrip()) for ln in fp.readlines()]
+        base_dir = os.path.dirname(os.path.dirname(getfile(currentframe())))
+        eruptive_file_path = os.path.join(base_dir, "data", "eruptive_periods.txt")
+
+        # ファイルの存在確認
+        if os.path.exists(eruptive_file_path):
+            try:
+                # Get eruptions
+                with open(eruptive_file_path, "r") as fp:
+                    # ファイルから行ごとに読み込み、改行を取り除き、日付を変換
+                    self.tes = [datetimeify(ln.rstrip()) for ln in fp.readlines()]
+                print("Eruption data loaded successfully.")
+            except Exception as e:
+                print(f"Error while reading the file: {e}")
+        else:
+            print(f"File not found: {eruptive_file_path}")
+            
         # Check if data file exists
         self.exists = os.path.isfile(self.file)
         if not self.exists:
