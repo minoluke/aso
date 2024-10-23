@@ -59,22 +59,15 @@ def _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams, i0=0, i1=No
         start_idx = i * (iw - io)
         end_idx = start_idx + iw
         dfi = df.iloc[start_idx:end_idx]
-        
-        # ウィンドウの長さが期待通りでない場合でもスキップせずに処理を続行
         if len(dfi) != iw:
-            print(f"Window {i}: not equal length")  # デバッグ用のメッセージを残す
-        
-        try:
-            dfi['id'] = pd.Series(np.ones(iw, dtype=int) * i, index=dfi.index)
-        except ValueError:
-            print(f"Error at window {i}")  # エラー時のメッセージ
-            
+            print(f"Window {i}: not equal length")
+            continue
+        dfi = dfi.copy()
+        dfi['id'] = i
         dfs.append(dfi)
-    
-    df = pd.concat(dfs)
-    window_dates = [ti + i * dto for i in range(Nw)]
-
-    return df, window_dates[i0:i1]
+    df_windows = pd.concat(dfs)
+    window_dates = [ti + i * dto for i in range(i0, i1)]
+    return df_windows, window_dates
 
 
 def _get_label(data, ts, look_forward):
