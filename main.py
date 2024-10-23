@@ -22,8 +22,25 @@ warnings.filterwarnings("ignore", category=FitFailedWarning)
 
 
 def forecast_dec_1day(od, wl, lf, cv):
+    """
+    Function to train and forecast eruption likelihood based on the provided parameters.
+    
+    Parameters:
+    -----------
+    od : str
+        Observation type (e.g., tremor, gas, magnetic, etc.).
+    wl : float
+        Window length in days.
+    lf : float
+        Look-forward period in days.
+    cv : int
+        Cross-validation fold index.
+    """
+    # Define time deltas
     month = timedelta(days=365.25 / 12)
     day = timedelta(days=1)
+    
+    # Initialize TremorData
     td = TremorData()
 
     # Determine data streams based on observation type
@@ -48,18 +65,16 @@ def forecast_dec_1day(od, wl, lf, cv):
             'yudamari_number', 'yudamari_temp'
         ]
     else:
-        raise ValueError("Invalid value for 'od'")
+        raise ValueError(f"Invalid observation type '{od}'. Choose from ['tremor', 'gas', 'magnetic', 'kakou', 'tilt', 'yudamari', 'all'].")
 
     # Initialize ForecastModel with the provided parameters
     fm = ForecastModel(
-        window=float(wl),
+        window=wl,
         overlap=0.85,
-        look_forward=float(lf),
+        look_forward=lf,
         data_streams=data_streams,
-        ti='2010-01-01',
-        tf='2022-12-31',
-        od=od,  # Pass the 'od' parameter
-        n_jobs=6  # Set number of jobs during initialization
+        od=od  # Pass the 'od' parameter
+        # n_jobs is handled internally; no need to pass here
     )
 
     # Retrieve the eruption event for the given cv
@@ -68,14 +83,21 @@ def forecast_dec_1day(od, wl, lf, cv):
     except IndexError:
         raise ValueError(f"No eruption event found for cv index {cv}")
 
+    # Define exclusion period around the eruption event
+    exclusion_start = te - 6 * month
+    exclusion_end = te + 6 * month
+
     # Train the model with exclusion of dates around the eruption event
     fm.train(
-        cv=cv,
         ti='2010-01-01',
         tf='2022-12-31',
         retrain=True,
-        exclude_dates_list=[[te - 6 * month, te + 6 * month]]
-        # Removed n_jobs parameter
+        exclude_dates=[[exclusion_start, exclusion_end]],
+        Nfts=20,          # Number of features to select
+        Ncl=100,          # Number of classifiers to train
+        classifier="DT",  # Classifier type
+        random_seed=0,    # Seed for reproducibility
+        n_jobs=6          # Number of parallel jobs
     )
 
     # Forecast using the trained models
@@ -83,9 +105,11 @@ def forecast_dec_1day(od, wl, lf, cv):
         cv=cv,
         ti='2010-01-01',
         tf='2022-12-31',
-        recalculate=True
-        # Removed n_jobs parameter
+        recalculate=False,
+        use_model=None,    # Use the default model directory
+        n_jobs=6
     )
+    print(f"Forecast for CV {cv} completed and saved.")
 
 
 if __name__ == "__main__":
@@ -104,7 +128,7 @@ if __name__ == "__main__":
     # Validate arguments
     valid_od = ['tremor', 'gas', 'magnetic', 'kakou', 'tilt', 'yudamari', 'all']
     if args.od not in valid_od:
-        raise ValueError(f"Invalid 'od' parameter. Choose from {valid_od}")
+        raise ValueError(f"Invalid 'od' parameter '{args.od}'. Choose from {valid_od}")
 
     # Call the forecasting function
     forecast_dec_1day(args.od, args.wl, args.lf, args.cv)

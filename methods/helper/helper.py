@@ -1,11 +1,12 @@
 # methods/helper/helper.py
 
-from sklearn.tree import DecisionTreeClassifier
+import os
 from datetime import datetime
-
+from sklearn.tree import DecisionTreeClassifier
 
 def get_classifier(classifier):
-    """Return scikit-learn ML classifiers and search grids for input strings.
+    """
+    Return scikit-learn ML classifiers and search grids for input strings.
 
     Parameters:
     -----------
@@ -14,35 +15,37 @@ def get_classifier(classifier):
 
     Returns:
     --------
-    model :
+    model : sklearn.base.BaseEstimator
         Scikit-learn classifier object.
     grid : dict
-        Scikit-learn hyperparameter grid dictionaries.
+        Scikit-learn hyperparameter grid dictionary.
 
     Classifier options:
     -------------------
     DT - Decision Tree
     """
-    if classifier == "DT":
-        model = DecisionTreeClassifier(class_weight="balanced")
+
+    if classifier == "DT":        # Decision Tree
+        model = DecisionTreeClassifier(class_weight='balanced')
         grid = {
-            "max_depth": [3, 5, 7],
-            "criterion": ["gini", "entropy"],
-            "max_features": ["auto", "sqrt", "log2", None],
+            'max_depth': [3, 5, 7],
+            'criterion': ['gini', 'entropy'],
+            'max_features': ['auto', 'sqrt', 'log2', None]
         }
     else:
-        raise ValueError("classifier '{:s}' not recognised".format(classifier))
+        raise ValueError(f"Classifier '{classifier}' not recognized. Available options: ['DT']")
 
     return model, grid
 
 
 def datetimeify(t):
-    """Return datetime object corresponding to input string.
+    """
+    Return datetime object corresponding to input string.
 
     Parameters:
     -----------
-    t : str, datetime.datetime
-        Date string to convert to datetime object.
+    t : str or datetime.datetime
+        Date string or datetime object to convert to datetime object.
 
     Returns:
     --------
@@ -55,10 +58,26 @@ def datetimeify(t):
     """
     if isinstance(t, datetime):
         return t
-    fmts = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%Y %m %d %H %M %S"]
+    fmts = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y %m %d %H %M %S']
     for fmt in fmts:
         try:
             return datetime.strptime(t, fmt)
-        except ValueError:
+        except (ValueError, TypeError):
             pass
-    raise ValueError("time data '{:s}' not a recognized format".format(t))
+    raise ValueError(f"Time data '{t}' not in a recognized format.")
+
+
+def makedir(name):
+    """
+    Create a directory if it does not exist.
+
+    Parameters:
+    -----------
+    name : str
+        Path of the directory to create.
+
+    Returns:
+    --------
+    None
+    """
+    os.makedirs(name, exist_ok=True)

@@ -1,91 +1,28 @@
 # methods/train/train.py
 
 import os
-import pandas as pd
-import numpy as np
+import shutil
+import gc
 import joblib
+import numpy as np
+import pandas as pd
 from glob import glob
 from functools import partial
+from multiprocessing import Pool
 from sklearn.model_selection import GridSearchCV, ShuffleSplit
+from sklearn.tree import DecisionTreeClassifier
 from imblearn.under_sampling import RandomUnderSampler
 from tsfresh.transformers import FeatureSelector
-from methods.helper.helper import get_classifier, datetimeify
+from tsfresh import extract_features
+from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
+from datetime import datetime, timedelta
+from tsfresh.utilities.dataframe_functions import impute
 
+from methods.helper.helper import get_classifier, makedir, datetimeify
 
-def train(
-    fM,
-    ys,
-    Nfts,
-    modeldir,
-    classifier,
-    Ncl=100,
-    retrain=False,
-    random_seed=0,
-    n_jobs=1,
-    exclude_dates_list=[],
-):
-    """Train classifier models.
-
-    Parameters:
-    -----------
-    fM : pd.DataFrame
-        Feature matrix.
-    ys : pd.Series
-        Label vector.
-    Nfts : int
-        Number of features to select.
-    modeldir : str
-        Directory to save models.
-    classifier : str
-        Classifier type.
-    Ncl : int
-        Number of classifiers to train.
-    retrain : bool
-        Whether to retrain existing models.
-    random_seed : int
-        Random seed for reproducibility.
-    n_jobs : int
-        Number of jobs for parallel processing.
+def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, random_state):
     """
-    if n_jobs > 1:
-        from multiprocessing import Pool
-
-        p = Pool(n_jobs)
-        mapper = p.imap
-    else:
-        mapper = map
-    f = partial(
-        train_one_model,
-        fM,
-        ys,
-        Nfts,
-        modeldir,
-        classifier,
-        retrain,
-        random_seed,
-    )
-    for i, _ in enumerate(mapper(f, range(Ncl))):
-        cf = (i + 1) / Ncl
-        print(
-            f'building models: [{"#"*round(50*cf)+"-"*round(50*(1-cf))}] {100.*cf:.2f}%\r',
-            end="",
-        )
-    if n_jobs > 1:
-        p.close()
-        p.join()
-
-
-def train_one_model(
-    fM,
-    ys,
-    Nfts,
-    modeldir,
-    classifier,
-    retrain,
-    random_seed,
-    random_state,
-):
-    """Train one classifier model.
+    Train a single model with undersampling and feature selection.
 
     Parameters:
     -----------
@@ -94,56 +31,62 @@ def train_one_model(
     ys : pd.Series
         Label vector.
     Nfts : int
-        Number of features to select.
+        Number of most-significant features to use in classifier.
     modeldir : str
-        Directory to save model.
+        Directory to save the trained model and feature information.
     classifier : str
-        Classifier type.
+        String denoting which classifier to train (e.g., 'DT').
     retrain : bool
-        Whether to retrain existing models.
+        Flag indicating whether to retrain the model if it already exists.
     random_seed : int
-        Random seed.
+        Seed for random operations to ensure reproducibility.
     random_state : int
-        Random state for reproducibility.
+        Unique identifier for the current model training instance.
+
+    Returns:
+    --------
+    None
     """
-    # Undersample data
-    rus = RandomUnderSampler(0.75, random_state=random_state + random_seed)
+    # Undersample the data
+    rus = RandomUnderSampler(sampling_strategy=0.75, random_state=random_state + random_seed)
     fMt, yst = rus.fit_resample(fM, ys)
     yst = pd.Series(yst, index=range(len(yst)))
     fMt.index = yst.index
 
     # Feature selection
-    select = FeatureSelector(n_jobs=0, ml_task="classification")
+    select = FeatureSelector(n_jobs=0, ml_task='classification')
     select.fit_transform(fMt, yst)
-    fts = select.features[:Nfts]
-    pvs = select.p_values[:Nfts]
+    fts = select.features_[:Nfts]
+    pvs = select.p_values_[:Nfts]
     fMt = fMt[fts]
-    with open("{:s}/{:04d}.fts".format(modeldir, random_state), "w") as fp:
+
+    # Save selected features and their p-values
+    feature_file = os.path.join(modeldir, f"{random_state:04d}.fts")
+    with open(feature_file, 'w') as fp:
         for f, pv in zip(fts, pvs):
-            fp.write("{:4.3e} {:s}\n".format(pv, f))
+            fp.write(f"{pv:4.3e} {f}\n")
 
-    # Get classifier
+    # Initialize classifier
     model, grid = get_classifier(classifier)
+    ss = ShuffleSplit(n_splits=5, test_size=0.25, random_state=random_state + random_seed)
 
-    # Check if model exists
+    # Check if model already exists
     pref = type(model).__name__
-    fl = "{:s}/{:s}_{:04d}.pkl".format(modeldir, pref, random_state)
-    if os.path.isfile(fl) and not retrain:
+    model_file = os.path.join(modeldir, f"{pref}_{random_state:04d}.pkl")
+    if os.path.isfile(model_file) and not retrain:
         return
 
-    # Train and save classifier
-    ss = ShuffleSplit(
-        n_splits=5, test_size=0.25, random_state=random_state + random_seed
-    )
-    model_cv = GridSearchCV(
-        model, grid, cv=ss, scoring="balanced_accuracy", error_score=np.nan
-    )
+    # Train classifier with GridSearchCV
+    model_cv = GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy", error_score=np.nan)
     model_cv.fit(fMt, yst)
-    _ = joblib.dump(model_cv.best_estimator_, fl, compress=3)
+
+    # Save the best estimator
+    joblib.dump(model_cv.best_estimator_, model_file, compress=3)
 
 
-def exclude_dates(X, y, exclude_dates_list):
-    """Exclude specified date ranges from data.
+def exclude_dates(X, y, exclude_dates):
+    """
+    Drop rows from feature matrix and label vector based on exclusion periods.
 
     Parameters:
     -----------
@@ -151,79 +94,345 @@ def exclude_dates(X, y, exclude_dates_list):
         Feature matrix.
     y : pd.Series
         Label vector.
-    exclude_dates_list : list
-        List of date ranges to exclude.
+    exclude_dates : list of lists
+        List of [start_date, end_date] pairs to exclude.
 
     Returns:
     --------
-    Xr : pd.DataFrame
-        Reduced feature matrix.
-    yr : pd.Series
-        Reduced label vector.
+    X_filtered : pd.DataFrame
+        Filtered feature matrix.
+    y_filtered : pd.Series
+        Filtered label vector.
     """
-    if len(exclude_dates_list) != 0:
-        for exclude_date_range in exclude_dates_list:
-            t0, t1 = [datetimeify(dt) for dt in exclude_date_range]
-            inds = (y.index < t0) | (y.index >= t1)
-            X = X.loc[inds]
-            y = y.loc[inds]
+    for exclude_date_range in exclude_dates:
+        t0, t1 = [datetimeify(dt) for dt in exclude_date_range]
+        inds = (y.index < t0) | (y.index >= t1)
+        X = X.loc[inds]
+        y = y.loc[inds]
     return X, y
 
 
 def collect_features(modeldir, save=None):
-    """Collect features used in trained classifiers.
+    """
+    Aggregate features used to train classifiers by frequency.
 
     Parameters:
     -----------
     modeldir : str
-        Directory containing model feature files.
-    save : str or None
-        Path to save collected features.
+        Directory where model feature files are stored.
+    save : str, optional
+        Path to save the feature frequencies. Defaults to 'all.fts' in modeldir.
 
     Returns:
     --------
     labels : list
-        List of feature names.
+        Feature names.
     freqs : list
-        Frequencies of features in models.
+        Frequency of each feature across all models.
     """
-    fls = glob("{:s}/*.fts".format(modeldir))
+    if save is None:
+        save = os.path.join(modeldir, 'all.fts')
+
     feats = []
+    fls = glob(os.path.join(modeldir, '*.fts'))
     for fl in fls:
-        if fl.endswith("all.fts") or fl.endswith("ranked.fts"):
+        if os.path.basename(fl).split('.')[0] in ['all', 'ranked']:
             continue
-        with open(fl) as fp:
+        with open(fl, 'r') as fp:
             lns = fp.readlines()
-        feats += [" ".join(ln.rstrip().split()[1:]) for ln in lns]
+        feats += [' '.join(ln.rstrip().split()[1:]) for ln in lns]
 
     labels = list(set(feats))
     freqs = [feats.count(label) for label in labels]
-    labels = [label for _, label in sorted(zip(freqs, labels))][::-1]
-    freqs = sorted(freqs)[::-1]
-    if save is not None:
-        with open(save, "w") as fp:
-            _ = [fp.write("{:d},{:s}\n".format(freq, ft)) for freq, ft in zip(freqs, labels)]
+    sorted_indices = np.argsort(freqs)[::-1]
+    labels = [labels[i] for i in sorted_indices]
+    freqs = sorted(freqs, reverse=True)
+
+    # Save feature frequencies
+    with open(save, 'w') as fp:
+        for freq, ft in zip(freqs, labels):
+            fp.write(f"{freq},{ft}\n")
+
     return labels, freqs
 
 
-def load_data(featfile, ti, tf):
-    """Load feature matrix and label vector.
+def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfile, n_jobs=6, update_feature_matrix=True):
+    """
+    Load feature matrix and label vector for a given period.
 
     Parameters:
     -----------
-    featfile : str
-        Path to feature file.
+    data : TremorData
+        Object containing tremor data.
     ti : datetime.datetime
-        Start time.
+        Start of the period.
     tf : datetime.datetime
-        End time.
+        End of the period.
+    iw : int
+        Number of samples in window.
+    io : int
+        Number of samples overlapping between windows.
+    dtw : timedelta
+        Duration of each window.
+    dto : timedelta
+        Duration of the non-overlapping section of the window.
+    Nw : int
+        Number of windows.
+    data_streams : list
+        Data streams to extract features from.
+    featdir : str
+        Directory to save feature matrices.
+    featfile : str
+        Path to save/load the feature matrix.
+    n_jobs : int, optional
+        Number of parallel jobs. Default is 6.
+    update_feature_matrix : bool, optional
+        Flag to update the feature matrix. Default is True.
 
     Returns:
     --------
     fM : pd.DataFrame
         Feature matrix.
-    ys : pd.Series
+    ys : pd.DataFrame
         Label vector.
     """
-    # Implement code to load data
-    pass
+    makedir(featdir)
+
+    # Features to compute
+    cfp = ComprehensiveFCParameters()
+
+    # Check if feature matrix already exists and what it contains
+    if os.path.isfile(featfile):
+        existing_fm = pd.read_csv(featfile, index_col=0, parse_dates=['time'], infer_datetime_format=True)
+        ti0, tf0 = existing_fm.index[0], existing_fm.index[-1]
+        Nw0 = len(existing_fm)
+        existing_features = set([hd.split('__')[1] for hd in existing_fm.columns])
+
+        # Determine padding
+        pad_left = int((ti0 - ti) / dto) if ti < ti0 else 0
+        pad_right = int(((ti + (Nw - 1) * dto) - tf0) / dto) if tf > tf0 else 0
+        i0 = abs(pad_left) if pad_left < 0 else 0
+        i1 = Nw0 + max(pad_left, 0) + pad_right
+
+        # Determine new features
+        new_features = set(cfp.keys()) - existing_features
+        more_cols = bool(new_features)
+        if more_cols:
+            cfp = {k: v for k, v in cfp.items() if k in new_features}
+
+        # Update feature matrix if needed
+        if (more_cols or pad_left > 0 or pad_right > 0) and update_feature_matrix:
+            fm = existing_fm.copy()
+
+            # Add new columns
+            if more_cols:
+                from methods.feature_extract.feature_extract import _construct_windows
+                from methods.feature_extract.feature_extract import _extract_features
+
+                df_new, wd_new = _construct_windows(data, Nw0, ti0, iw, io, dtw, dto, data_streams, i0=0, i1=Nw0)
+                fm_new = extract_features(df_new, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                fm_new.index = pd.Series(wd_new)
+                fm = pd.concat([fm, fm_new], axis=1, sort=False)
+
+            # Add new rows on the left
+            if pad_left > 0:
+                from methods.feature_extract.feature_extract import _construct_windows
+                from methods.feature_extract.feature_extract import _extract_features
+
+                df_left, wd_left = _construct_windows(data, pad_left, ti, iw, io, dtw, dto, data_streams, i0=0, i1=pad_left)
+                fm_left = extract_features(df_left, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                fm_left.index = pd.Series(wd_left)
+                fm = pd.concat([fm_left, fm], sort=False)
+
+            # Add new rows on the right
+            if pad_right > 0:
+                from methods.feature_extract.feature_extract import _construct_windows
+                from methods.feature_extract.feature_extract import _extract_features
+
+                df_right, wd_right = _construct_windows(data, pad_right, ti + (Nw - pad_right) * dto, iw, io, dtw, dto, data_streams, i0=0, i1=pad_right)
+                fm_right = extract_features(df_right, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                fm_right.index = pd.Series(wd_right)
+                fm = pd.concat([fm, fm_right], sort=False)
+
+            # Save updated feature matrix
+            fm.to_csv(featfile, index=True, index_label='time')
+            fm = fm.iloc[i0:i1]
+        else:
+            # Read relevant part of the existing feature matrix
+            fm = existing_fm.iloc[i0:i1]
+    else:
+        # Create feature matrix from scratch
+        from methods.feature_extract.feature_extract import _construct_windows
+        from methods.feature_extract.feature_extract import _extract_features
+
+        df_windows, wd = _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams)
+        fm = extract_features(df_windows, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+        fm.index = pd.Series(wd)
+        fm.to_csv(featfile, index=True, index_label='time')
+
+    # Compute labels
+    ys = pd.DataFrame(data._is_eruption_in(days=dtw.days, from_time=t) for t in pd.to_datetime(fm.index))
+    ys.columns = ['label']
+    ys.index = fm.index
+
+    return fm, ys
+
+
+def train(data, modeldir, featdir, featfile, window, overlap, look_forward, ti=None, tf=None,
+          Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates=[]):
+    """
+    Construct and train classifier models.
+
+    Parameters:
+    -----------
+    data : TremorData
+        Object containing tremor data.
+    modeldir : str
+        Directory to save forecast models (pickled sklearn objects).
+    featdir : str
+        Directory to save feature matrices.
+    featfile : str
+        File path to save/load the feature matrix.
+    window : float
+        Length of data window in days.
+    overlap : float
+        Fraction of overlap between adjacent windows.
+    look_forward : float
+        Length of look-forward in days.
+    ti : str or datetime.datetime, optional
+        Beginning of training period (default is beginning model analysis period).
+    tf : str or datetime.datetime, optional
+        End of training period (default is end of model analysis period).
+    Nfts : int, optional
+        Number of most-significant features to use in classifier. Default is 20.
+    Ncl : int, optional
+        Number of classifier models to train. Default is 100.
+    retrain : bool, optional
+        Use saved models (False) or train new ones. Default is False.
+    classifier : str, optional
+        String denoting which classifier to train (e.g., 'DT'). Default is 'DT'.
+    random_seed : int, optional
+        Seed for random operations to ensure reproducibility. Default is 0.
+    n_jobs : int, optional
+        Number of CPUs to use for parallel tasks. Default is 6.
+    exclude_dates : list of lists, optional
+        List of [start_date, end_date] pairs to exclude during training.
+
+    Returns:
+    --------
+    None
+    """
+    makedir(modeldir)
+
+    # Initialize training interval
+    ti_train = datetimeify(ti) if ti else data.ti
+    tf_train = datetimeify(tf) if tf else data.tf
+
+    if tf_train > data.tf:
+        raise ValueError(f"Model end date '{tf_train}' beyond data range '{data.tf}'")
+    if ti_train < data.ti:
+        raise ValueError(f"Model start date '{ti_train}' predates data range '{data.ti}'")
+
+    # Define window parameters
+    dtw = timedelta(days=window)
+    dto = timedelta(days=(1.0 - overlap) * window)
+    iw = int(window)
+    io = int(overlap * iw)
+    if io == iw:
+        io -= 1
+
+    window = float(iw)
+    dtw = timedelta(days=window)
+    if ti_train - dtw < data.ti:
+        ti_train = data.ti + dtw
+    overlap = float(io) / iw
+    dto = timedelta(days=(1.0 - overlap) * window)
+
+    # Check if any model training is required
+    if not retrain:
+        run_models = False
+        model, _ = get_classifier(classifier)
+        pref = type(model).__name__
+        for i in range(Ncl):
+            model_file = os.path.join(modeldir, f"{pref}_{i:04d}.pkl")
+            if not os.path.isfile(model_file):
+                run_models = True
+                break
+        if not run_models:
+            print("All models are already trained. Skipping training.")
+            return
+    else:
+        # Delete old model files
+        old_models = glob(os.path.join(modeldir, '*'))
+        for fl in old_models:
+            os.remove(fl)
+        print("Old model files removed.")
+
+    # Load feature matrix and label vector
+    from methods.feature_extract.feature_extract import _extract_features
+
+    fM, ys = _extract_features(
+        data=data,
+        ti=ti_train,
+        tf=tf_train,
+        Nw=int(np.floor(((tf_train - ti_train) / timedelta(days=1)) / (iw - io))),
+        iw=iw,
+        io=io,
+        dtw=dtw,
+        dto=dto,
+        data_streams=data.data_streams,
+        featdir=featdir,
+        featfile=featfile,
+        n_jobs=n_jobs,
+        update_feature_matrix=True
+    )
+
+    # Exclude specified dates
+    X_filtered, y_filtered = exclude_dates(fM, ys['label'], exclude_dates)
+
+    if y_filtered.shape[0] != X_filtered.shape[0]:
+        raise ValueError("Dimensions of feature matrix and label vector do not match after excluding dates.")
+
+    # Set up model training
+    if n_jobs > 1:
+        pool = Pool(n_jobs)
+        mapper = pool.imap
+    else:
+        mapper = map
+
+    train_func = partial(
+        train_one_model,
+        fM=X_filtered,
+        ys=y_filtered,
+        Nfts=Nfts,
+        modeldir=modeldir,
+        classifier=classifier,
+        retrain=retrain,
+        random_seed=random_seed
+    )
+
+    # Train models with progress indication
+    for i, _ in enumerate(mapper(train_func, range(Ncl))):
+        cf = (i + 1) / Ncl
+        print(f"Building models: [{'#' * round(50 * cf) + '-' * round(50 * (1 - cf))}] {100. * cf:.2f}%", end='\r')
+    print("\nModel training completed.")
+
+    if n_jobs > 1:
+        pool.close()
+        pool.join()
+
+    # Free memory
+    del fM, ys, X_filtered, y_filtered
+    gc.collect()
+
+    # Collect feature frequencies
+    collect_features(modeldir)
+
+    # Copy 'all.fts' to consensus directory
+    all_fts_path = os.path.join(modeldir, 'all.fts')
+    if os.path.exists(all_fts_path):
+        consensus_dir = os.path.join('save', 'consensus', f"{window}_{look_forward}")
+        makedir(consensus_dir)
+        new_all_fts_path = os.path.join(consensus_dir, f"cv_{all_fts_path.split(os.sep)[-1]}")
+        shutil.copy(all_fts_path, new_all_fts_path)
+        print(f"Feature frequencies copied to {new_all_fts_path}")

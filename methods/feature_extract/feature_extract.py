@@ -1,101 +1,198 @@
 # methods/feature_extract/feature_extract.py
 
 import os
-import pandas as pd
 import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
+from glob import glob
+from functools import partial
+from multiprocessing import Pool
+from methods.helper.helper import datetimeify, makedir
 from tsfresh import extract_features
 from tsfresh.utilities.dataframe_functions import impute
-from datetime import timedelta
-from methods.helper.helper import datetimeify
-from methods.window_and_label.window_and_label import construct_windows
+from tsfresh.transformers import FeatureSelector
+from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 
 
-def extract_features_func(data, window_dates, cfp, n_jobs=1):
-    """Extract features from windowed data.
-
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        Windowed data with 'id' column denoting window ids.
-    window_dates : list
-        List of window dates corresponding to 'id's in data.
-    cfp : dict
-        Comprehensive feature parameters for tsfresh.
-    n_jobs : int
-        Number of jobs for parallel processing.
-
-    Returns:
-    --------
-    fm : pandas.DataFrame
-        Feature matrix extracted from data windows.
-    """
-    fm = extract_features(
-        data,
-        column_id="id",
-        n_jobs=n_jobs,
-        default_fc_parameters=cfp,
-        impute_function=impute,
-    )
-    fm.index = pd.Series(window_dates)
-    return fm
-
-
-def construct_features(ti, tf, data, cfp, iw, io, dto, n_jobs=1):
-    """Construct features over a period.
+def _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams, i0=0, i1=None):
+    """ Create overlapping data windows for feature extraction.
 
     Parameters:
     -----------
+    data : TremorData
+        Object containing tremor data.
+    Nw : int
+        Number of windows to create.
     ti : datetime.datetime
-        Start time.
-    tf : datetime.datetime
-        End time.
-    data : pandas.DataFrame
-        Data to extract features from.
-    cfp : dict
-        Comprehensive feature parameters for tsfresh.
+        End of first window.
     iw : int
         Number of samples in window.
     io : int
-        Number of samples in overlapping section of window.
-    dto : datetime.timedelta
-        Time delta for non-overlapping section.
-    n_jobs : int
-        Number of jobs for parallel processing.
+        Number of samples in overlapping section of the window.
+    dtw : timedelta
+        Length of the window.
+    dto : timedelta
+        Length of the non-overlapping section of the window.
+    data_streams : list
+        Data streams and transforms from which to extract features.
+    i0 : int, optional
+        Skip i0 initial windows. Default is 0.
+    i1 : int, optional
+        Skip i1 final windows. Default is None.
 
     Returns:
     --------
-    fm : pandas.DataFrame
-        Feature matrix over the period.
+    df : pandas.DataFrame
+        Dataframe of windowed data, with 'id' column denoting individual windows.
+    window_dates : list
+        Datetime objects corresponding to the beginning of each data window.
     """
-    Nw = int(np.floor((tf - ti) / dto))
-    df, window_dates = construct_windows(Nw, ti, data, iw, io, dto)
-    fm = extract_features_func(df, window_dates, cfp, n_jobs)
-    return fm
+    if i1 is None:
+        i1 = Nw
+
+    # Get data for windowing period
+    df = data.get_data(ti - dtw, ti + (Nw - 1) * dto)[data_streams]
+
+    # Create windows
+    dfs = []
+    for i in range(i0, i1):
+        start_idx = i * (iw - io)
+        end_idx = start_idx + iw
+        dfi = df.iloc[start_idx:end_idx]
+        if len(dfi) != iw:
+            print(f"Window {i}: not equal length")
+            continue
+        dfi = dfi.copy()
+        dfi['id'] = i
+        dfs.append(dfi)
+    df_windows = pd.concat(dfs)
+    window_dates = [ti + i * dto for i in range(i0, i1)]
+    return df_windows, window_dates
 
 
-def get_label(tes, ts, look_forward):
-    """Compute label vector.
+def _get_label(data, ts, look_forward):
+    """ Compute label vector.
 
     Parameters:
     -----------
-    tes : list
-        List of eruption dates.
-    ts : list
+    data : TremorData
+        Object containing tremor data.
+    ts : array-like
         List of dates to inspect look-forward for eruption.
     look_forward : float
-        Look-forward period in days.
+        Length of look-forward in days.
 
     Returns:
     --------
     ys : list
         Label vector.
     """
-    labels = []
-    for t in ts:
-        label = 0
-        for te in tes:
-            if 0 < (te - t).total_seconds() / (3600 * 24) < look_forward:
-                label = 1
-                break
-        labels.append(label)
-    return labels
+    return [data._is_eruption_in(days=look_forward, from_time=t) for t in pd.to_datetime(ts)]
+
+
+def _extract_features(data, ti, tf, Nw, iw, io, dtw, dto, data_streams, featdir, featfile, look_forward, n_jobs=6, update_feature_matrix=True):
+    """ Extract features from windowed data.
+
+    Parameters:
+    -----------
+    data : TremorData
+        Object containing tremor data.
+    ti : datetime.datetime
+        End of first window.
+    tf : datetime.datetime
+        End of last window.
+    Nw : int
+        Number of windows to create.
+    iw : int
+        Number of samples in window.
+    io : int
+        Number of samples in overlapping section of the window.
+    dtw : timedelta
+        Length of the window.
+    dto : timedelta
+        Length of the non-overlapping section of the window.
+    data_streams : list
+        Data streams and transforms from which to extract features.
+    featdir : str
+        Directory to save feature matrices.
+    featfile : str
+        File path to save feature matrix.
+    look_forward : float
+        Length of look-forward in days.
+    n_jobs : int, optional
+        Number of parallel jobs. Default is 6.
+    update_feature_matrix : bool, optional
+        Flag to update the feature matrix. Default is True.
+
+    Returns:
+    --------
+    fm : pandas.DataFrame
+        tsfresh feature matrix extracted from data windows.
+    ys : pandas.DataFrame
+        Label vector corresponding to data windows.
+    """
+    makedir(featdir)
+
+    # Features to compute
+    cfp = ComprehensiveFCParameters()
+
+    # Check if feature matrix already exists and what it contains
+    if os.path.isfile(featfile):
+        existing_fm = pd.read_csv(featfile, index_col=0, parse_dates=['time'], infer_datetime_format=True)
+        ti0, tf0 = existing_fm.index[0], existing_fm.index[-1]
+        Nw0 = len(existing_fm)
+        existing_features = list(set([hd.split('__')[1] for hd in existing_fm.columns]))
+
+        # Determine padding
+        pad_left = int((ti0 - ti) / dto) if ti < ti0 else 0
+        pad_right = int(((ti + (Nw - 1) * dto) - tf0) / dto) if tf > tf0 else 0
+        i0 = abs(pad_left) if pad_left < 0 else 0
+        i1 = Nw0 + max([pad_left, 0]) + pad_right
+
+        # Determine new features
+        new_features = set(cfp.keys()) - set(existing_features)
+        more_cols = bool(new_features)
+        if more_cols:
+            cfp = {k: v for k, v in cfp.items() if k in new_features}
+
+        # Update feature matrix if needed
+        if (more_cols or pad_left > 0 or pad_right > 0) and update_feature_matrix:
+            fm = existing_fm.copy()
+
+            # Add new columns
+            if more_cols:
+                df_new, wd_new = _construct_windows(data, Nw0, ti0, iw, io, dtw, dto, data_streams)
+                fm_new = extract_features(df_new, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                fm_new.index = pd.Series(wd_new)
+                fm = pd.concat([fm, fm_new], axis=1, sort=False)
+
+            # Add new rows on the left
+            if pad_left > 0:
+                df_left, wd_left = _construct_windows(data, pad_left, ti, iw, io, dtw, dto, data_streams, i0=0, i1=pad_left)
+                fm_left = extract_features(df_left, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                fm_left.index = pd.Series(wd_left)
+                fm = pd.concat([fm_left, fm], sort=False)
+
+            # Add new rows on the right
+            if pad_right > 0:
+                df_right, wd_right = _construct_windows(data, pad_right, ti + (Nw - pad_right) * dto, iw, io, dtw, dto, data_streams, i0=0, i1=pad_right)
+                fm_right = extract_features(df_right, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                fm_right.index = pd.Series(wd_right)
+                fm = pd.concat([fm, fm_right], sort=False)
+
+            # Save updated feature matrix
+            fm.to_csv(featfile, index=True, index_label='time')
+            fm = fm.iloc[i0:i1]
+        else:
+            # Read relevant part of the existing feature matrix
+            fm = existing_fm.iloc[i0:i1]
+    else:
+        # Create feature matrix from scratch
+        df_windows, wd = _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams)
+        fm = extract_features(df_windows, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+        fm.index = pd.Series(wd)
+        fm.to_csv(featfile, index=True, index_label='time')
+
+    # Compute labels
+    ys = pd.DataFrame(_get_label(data, fm.index.values, look_forward=look_forward), columns=['label'], index=fm.index)
+    return fm, ys
