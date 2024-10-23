@@ -35,7 +35,7 @@ class TremorData(object):
     def __init__(self):
         # Construct the path to the tremor data file
         self.file = os.sep.join(
-            getfile(currentframe()).split(os.sep)[:-2] + ['data', 'tremor_data.dat']
+            getfile(currentframe()).split(os.sep)[:-3] + ['data', 'tremor_data.dat']
         )
         self._assess()
 
@@ -52,7 +52,7 @@ class TremorData(object):
         """
         # Construct the path to the eruptive periods file
         eruptive_periods_path = os.sep.join(
-            getfile(currentframe()).split(os.sep)[:-2] + ['data', 'eruptive_periods.txt']
+            getfile(currentframe()).split(os.sep)[:-3] + ['data', 'eruptive_periods.txt']
         )
         
         # Load eruptive periods
