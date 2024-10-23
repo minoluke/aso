@@ -7,6 +7,7 @@ from .helper import get_classifier, datetimeify, makedir
 import os 
 from datetime import datetime, timedelta
 
+
 class ForecastModel:
     """ 
     Object for training and running forecast models.
@@ -117,6 +118,7 @@ class ForecastModel:
             window=self.window,
             overlap=self.overlap,
             look_forward=self.look_forward,
+            data_streams=self.data_streams,  # Pass data_streams here
             ti=ti,
             tf=tf,
             Nfts=Nfts,
@@ -124,6 +126,7 @@ class ForecastModel:
             retrain=retrain,
             classifier=classifier,
             random_seed=random_seed,
+            n_jobs=n_jobs,
             exclude_dates=exclude_dates
         )
     

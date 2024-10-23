@@ -13,39 +13,17 @@ from sklearn.model_selection import GridSearchCV, ShuffleSplit
 from sklearn.tree import DecisionTreeClassifier
 from imblearn.under_sampling import RandomUnderSampler
 from tsfresh.transformers import FeatureSelector
-from tsfresh import extract_features
+from tsfresh import extract_features, select_features
+from tsfresh.utilities.dataframe_functions import impute
 from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 from datetime import datetime, timedelta
-from tsfresh.utilities.dataframe_functions import impute
 
 from methods.helper.helper import get_classifier, makedir, datetimeify
+from methods.feature_extract.feature_extract import _construct_windows, extract_features
 
 def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, random_state):
     """
     Train a single model with undersampling and feature selection.
-
-    Parameters:
-    -----------
-    fM : pd.DataFrame
-        Feature matrix.
-    ys : pd.Series
-        Label vector.
-    Nfts : int
-        Number of most-significant features to use in classifier.
-    modeldir : str
-        Directory to save the trained model and feature information.
-    classifier : str
-        String denoting which classifier to train (e.g., 'DT').
-    retrain : bool
-        Flag indicating whether to retrain the model if it already exists.
-    random_seed : int
-        Seed for random operations to ensure reproducibility.
-    random_state : int
-        Unique identifier for the current model training instance.
-
-    Returns:
-    --------
-    None
     """
     # Undersample the data
     rus = RandomUnderSampler(sampling_strategy=0.75, random_state=random_state + random_seed)
@@ -87,22 +65,6 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, ra
 def exclude_dates(X, y, exclude_dates):
     """
     Drop rows from feature matrix and label vector based on exclusion periods.
-
-    Parameters:
-    -----------
-    X : pd.DataFrame
-        Feature matrix.
-    y : pd.Series
-        Label vector.
-    exclude_dates : list of lists
-        List of [start_date, end_date] pairs to exclude.
-
-    Returns:
-    --------
-    X_filtered : pd.DataFrame
-        Filtered feature matrix.
-    y_filtered : pd.Series
-        Filtered label vector.
     """
     for exclude_date_range in exclude_dates:
         t0, t1 = [datetimeify(dt) for dt in exclude_date_range]
@@ -115,20 +77,6 @@ def exclude_dates(X, y, exclude_dates):
 def collect_features(modeldir, save=None):
     """
     Aggregate features used to train classifiers by frequency.
-
-    Parameters:
-    -----------
-    modeldir : str
-        Directory where model feature files are stored.
-    save : str, optional
-        Path to save the feature frequencies. Defaults to 'all.fts' in modeldir.
-
-    Returns:
-    --------
-    labels : list
-        Feature names.
-    freqs : list
-        Frequency of each feature across all models.
     """
     if save is None:
         save = os.path.join(modeldir, 'all.fts')
@@ -159,42 +107,6 @@ def collect_features(modeldir, save=None):
 def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfile, n_jobs=6, update_feature_matrix=True):
     """
     Load feature matrix and label vector for a given period.
-
-    Parameters:
-    -----------
-    data : TremorData
-        Object containing tremor data.
-    ti : datetime.datetime
-        Start of the period.
-    tf : datetime.datetime
-        End of the period.
-    iw : int
-        Number of samples in window.
-    io : int
-        Number of samples overlapping between windows.
-    dtw : timedelta
-        Duration of each window.
-    dto : timedelta
-        Duration of the non-overlapping section of the window.
-    Nw : int
-        Number of windows.
-    data_streams : list
-        Data streams to extract features from.
-    featdir : str
-        Directory to save feature matrices.
-    featfile : str
-        Path to save/load the feature matrix.
-    n_jobs : int, optional
-        Number of parallel jobs. Default is 6.
-    update_feature_matrix : bool, optional
-        Flag to update the feature matrix. Default is True.
-
-    Returns:
-    --------
-    fM : pd.DataFrame
-        Feature matrix.
-    ys : pd.DataFrame
-        Label vector.
     """
     makedir(featdir)
 
@@ -226,9 +138,6 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
             # Add new columns
             if more_cols:
-                from methods.feature_extract.feature_extract import _construct_windows
-                from methods.feature_extract.feature_extract import _extract_features
-
                 df_new, wd_new = _construct_windows(data, Nw0, ti0, iw, io, dtw, dto, data_streams, i0=0, i1=Nw0)
                 fm_new = extract_features(df_new, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
                 fm_new.index = pd.Series(wd_new)
@@ -236,9 +145,6 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
             # Add new rows on the left
             if pad_left > 0:
-                from methods.feature_extract.feature_extract import _construct_windows
-                from methods.feature_extract.feature_extract import _extract_features
-
                 df_left, wd_left = _construct_windows(data, pad_left, ti, iw, io, dtw, dto, data_streams, i0=0, i1=pad_left)
                 fm_left = extract_features(df_left, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
                 fm_left.index = pd.Series(wd_left)
@@ -246,9 +152,6 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
             # Add new rows on the right
             if pad_right > 0:
-                from methods.feature_extract.feature_extract import _construct_windows
-                from methods.feature_extract.feature_extract import _extract_features
-
                 df_right, wd_right = _construct_windows(data, pad_right, ti + (Nw - pad_right) * dto, iw, io, dtw, dto, data_streams, i0=0, i1=pad_right)
                 fm_right = extract_features(df_right, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
                 fm_right.index = pd.Series(wd_right)
@@ -262,65 +165,20 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
             fm = existing_fm.iloc[i0:i1]
     else:
         # Create feature matrix from scratch
-        from methods.feature_extract.feature_extract import _construct_windows
-        from methods.feature_extract.feature_extract import _extract_features
-
         df_windows, wd = _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams)
         fm = extract_features(df_windows, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
         fm.index = pd.Series(wd)
         fm.to_csv(featfile, index=True, index_label='time')
 
     # Compute labels
-    ys = pd.DataFrame(data._is_eruption_in(days=dtw.days, from_time=t) for t in pd.to_datetime(fm.index))
-    ys.columns = ['label']
-    ys.index = fm.index
-
+    ys = pd.DataFrame([data._is_eruption_in(days=dtw.days, from_time=t) for t in pd.to_datetime(fm.index)], columns=['label'], index=fm.index)
     return fm, ys
 
 
-def train(data, modeldir, featdir, featfile, window, overlap, look_forward, ti=None, tf=None,
+def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data_streams, ti=None, tf=None,
           Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates=[]):
     """
     Construct and train classifier models.
-
-    Parameters:
-    -----------
-    data : TremorData
-        Object containing tremor data.
-    modeldir : str
-        Directory to save forecast models (pickled sklearn objects).
-    featdir : str
-        Directory to save feature matrices.
-    featfile : str
-        File path to save/load the feature matrix.
-    window : float
-        Length of data window in days.
-    overlap : float
-        Fraction of overlap between adjacent windows.
-    look_forward : float
-        Length of look-forward in days.
-    ti : str or datetime.datetime, optional
-        Beginning of training period (default is beginning model analysis period).
-    tf : str or datetime.datetime, optional
-        End of training period (default is end of model analysis period).
-    Nfts : int, optional
-        Number of most-significant features to use in classifier. Default is 20.
-    Ncl : int, optional
-        Number of classifier models to train. Default is 100.
-    retrain : bool, optional
-        Use saved models (False) or train new ones. Default is False.
-    classifier : str, optional
-        String denoting which classifier to train (e.g., 'DT'). Default is 'DT'.
-    random_seed : int, optional
-        Seed for random operations to ensure reproducibility. Default is 0.
-    n_jobs : int, optional
-        Number of CPUs to use for parallel tasks. Default is 6.
-    exclude_dates : list of lists, optional
-        List of [start_date, end_date] pairs to exclude during training.
-
-    Returns:
-    --------
-    None
     """
     makedir(modeldir)
 
@@ -341,10 +199,6 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, ti=N
     if io == iw:
         io -= 1
 
-    window = float(iw)
-    dtw = timedelta(days=window)
-    if ti_train - dtw < data.ti:
-        ti_train = data.ti + dtw
     overlap = float(io) / iw
     dto = timedelta(days=(1.0 - overlap) * window)
 
@@ -369,18 +223,16 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, ti=N
         print("Old model files removed.")
 
     # Load feature matrix and label vector
-    from methods.feature_extract.feature_extract import _extract_features
-
-    fM, ys = _extract_features(
+    fM, ys = load_data(
         data=data,
         ti=ti_train,
         tf=tf_train,
-        Nw=int(np.floor(((tf_train - ti_train) / timedelta(days=1)) / (iw - io))),
         iw=iw,
         io=io,
         dtw=dtw,
         dto=dto,
-        data_streams=data.data_streams,
+        Nw=int(np.floor(((tf_train - ti_train) / timedelta(days=1)) / (iw - io))),
+        data_streams=data_streams,  # Pass data_streams here
         featdir=featdir,
         featfile=featfile,
         n_jobs=n_jobs,
@@ -433,6 +285,6 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, ti=N
     if os.path.exists(all_fts_path):
         consensus_dir = os.path.join('save', 'consensus', f"{window}_{look_forward}")
         makedir(consensus_dir)
-        new_all_fts_path = os.path.join(consensus_dir, f"cv_{all_fts_path.split(os.sep)[-1]}")
+        new_all_fts_path = os.path.join(consensus_dir, f"cv_{os.path.basename(all_fts_path)}")
         shutil.copy(all_fts_path, new_all_fts_path)
         print(f"Feature frequencies copied to {new_all_fts_path}")

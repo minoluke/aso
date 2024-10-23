@@ -66,7 +66,7 @@ def forecast_dec_1day(od, wl, lf, cv):
         ]
     else:
         raise ValueError(f"Invalid observation type '{od}'. Choose from ['tremor', 'gas', 'magnetic', 'kakou', 'tilt', 'yudamari', 'all'].")
-
+    
     # Initialize ForecastModel with the provided parameters
     fm = ForecastModel(
         window=wl,
