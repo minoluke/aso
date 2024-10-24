@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from methods.helper.helper import get_classifier, makedir, datetimeify
 from methods.feature_extract.feature_extract import _construct_windows, extract_features
 
-def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, *,random_state):
+def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed,random_state):
     """
     Train a single model with undersampling and feature selection.
     """
