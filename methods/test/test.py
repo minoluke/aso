@@ -100,7 +100,7 @@ def predict_one_model(fM, model_path, pref, flp):
     return ypdf
 
 
-def forecast(data, use_model=None, ti=None, tf=None, recalculate=False, n_jobs=6, rootdir='save/test', preddir='predictions', consensusdir='consensus', window=30.0, look_forward=7.0, overlap=0.5, od=None):
+def forecast(data, use_model=None, ti=None, tf=None, recalculate=False, n_jobs=6, rootdir='save/test', preddir='predictions', consensusdir='consensus', window=30.0, look_forward=7.0, overlap=0.5, od=None, data_streams=None ):
     """
     Use classifier models to forecast eruption likelihood.
 
@@ -204,7 +204,7 @@ def forecast(data, use_model=None, ti=None, tf=None, recalculate=False, n_jobs=6
             io=io,
             dtw=dtw,
             dto=dto,
-            data_streams=data.data_streams,
+            data_streams=data_streams,
             featdir=os.path.join(rootdir, 'feature'),
             featfile=os.path.join(rootdir, 'feature', 'forecast_features.csv'),
             n_jobs=n_jobs,
