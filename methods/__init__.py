@@ -1,7 +1,7 @@
 # methods/__init__.py
 
 from .data import TremorData
-from .train import train, exclude_dates, collect_features, load_data
+from .train import train, exclude_dates_func, collect_features, load_data
 from .test import forecast, predict_one_model, detect_model
 from .helper import get_classifier, datetimeify, makedir
 import os 
@@ -84,7 +84,7 @@ class ForecastModel:
         self.consensusdir = os.path.join(self.rootdir, 'consensus')
         self.od = od
     
-    def train(self, ti=None, tf=None, Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates=[]):
+    def train(self, ti=None, tf=None, Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates_ranges=[]):
         """
         Construct and train classifier models.
         
@@ -106,7 +106,7 @@ class ForecastModel:
             Seed for random operations to ensure reproducibility. Default is 0.
         n_jobs : int, optional
             Number of CPUs to use for parallel tasks. Default is 6.
-        exclude_dates : list of lists, optional
+        exclude_dates_ranges : list of lists, optional
             List of [start_date, end_date] pairs to exclude during training.
         """
         self.n_jobs = n_jobs
@@ -127,7 +127,7 @@ class ForecastModel:
             classifier=classifier,
             random_seed=random_seed,
             n_jobs=n_jobs,
-            exclude_dates=exclude_dates
+            exclude_dates_ranges=exclude_dates_ranges
         )
     
     def forecast(self, cv=0, ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):

@@ -62,11 +62,11 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, ra
     joblib.dump(model_cv.best_estimator_, model_file, compress=3)
 
 
-def exclude_dates(X, y, exclude_dates):
+def exclude_dates_func(X, y, exclude_dates_ranges):
     """
     Drop rows from feature matrix and label vector based on exclusion periods.
     """
-    for exclude_date_range in exclude_dates:
+    for exclude_date_range in exclude_dates_ranges:
         t0, t1 = [datetimeify(dt) for dt in exclude_date_range]
         inds = (y.index < t0) | (y.index >= t1)
         X = X.loc[inds]
@@ -176,7 +176,7 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
 
 def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data_streams, ti=None, tf=None,
-          Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates=[]):
+          Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates_ranges=[]):
     """
     Construct and train classifier models.
     """
@@ -240,7 +240,7 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
     )
 
     # Exclude specified dates
-    X_filtered, y_filtered = exclude_dates(fM, ys['label'], exclude_dates)
+    X_filtered, y_filtered = exclude_dates_func(fM, ys['label'], exclude_dates_ranges)
 
     if y_filtered.shape[0] != X_filtered.shape[0]:
         raise ValueError("Dimensions of feature matrix and label vector do not match after excluding dates.")

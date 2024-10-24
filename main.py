@@ -92,7 +92,7 @@ def forecast_dec_1day(od, wl, lf, cv):
         ti='2010-01-01',
         tf='2022-12-31',
         retrain=True,
-        exclude_dates=[[exclusion_start, exclusion_end]],
+        exclude_dates_ranges=[[exclusion_start, exclusion_end]],
         Nfts=20,          # Number of features to select
         Ncl=100,          # Number of classifiers to train
         classifier="DT",  # Classifier type

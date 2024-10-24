@@ -62,13 +62,13 @@ def _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams, i0=0, i1=No
     # Calculate expected length
     expected_length = (Nw - 1) * (iw - io) + iw
     actual_length = len(df)
-    print(f"Expected data length: {expected_length}, Actual data length: {actual_length}")
+    #print(f"Expected data length: {expected_length}, Actual data length: {actual_length}")
 
     if actual_length < expected_length:
-        print(f"Insufficient data: expected at least {expected_length} samples, got {actual_length}")
+        #print(f"Insufficient data: expected at least {expected_length} samples, got {actual_length}")
         Nw = int((actual_length - iw) / (iw - io)) + 1
         i1 = min(i1, Nw)
-        print(f"Adjusted number of windows to: {Nw}")
+        #print(f"Adjusted number of windows to: {Nw}")
 
     # Create windows
     dfs = []
@@ -76,9 +76,9 @@ def _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams, i0=0, i1=No
     for i in range(i0, i1):
         start_idx = i * (iw - io)
         end_idx = start_idx + iw
-        print(f"Window {i}: start_idx={start_idx}, end_idx={end_idx}")
+        #print(f"Window {i}: start_idx={start_idx}, end_idx={end_idx}")
         if end_idx > len(df):
-            print(f"Window {i}: end_idx {end_idx} exceeds data length {len(df)}. Skipping.")
+            #print(f"Window {i}: end_idx {end_idx} exceeds data length {len(df)}. Skipping.")
             continue
         dfi = df.iloc[start_idx:end_idx]
         actual_length = len(dfi)
