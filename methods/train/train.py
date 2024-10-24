@@ -287,7 +287,7 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
         pool = Pool(n_jobs)
         mapper = pool.starmap
     else:
-        # シングルプロセスの場合は starmap に似た動作をする
+        # シングルプロセスの場合は starmap に似た動作をするゆお
         mapper = lambda func, iterable: map(func, iterable)
 
     # partial の代わりに lambda を使用
