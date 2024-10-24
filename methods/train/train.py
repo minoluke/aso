@@ -10,7 +10,6 @@ from glob import glob
 from functools import partial
 from multiprocessing import Pool
 from sklearn.model_selection import GridSearchCV, ShuffleSplit
-from sklearn.tree import DecisionTreeClassifier
 from imblearn.under_sampling import RandomUnderSampler
 from tsfresh.transformers import FeatureSelector
 from tsfresh.utilities.dataframe_functions import impute
@@ -103,7 +102,7 @@ def collect_features(modeldir, save=None):
     return labels, freqs
 
 
-def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfile, n_jobs=6, update_feature_matrix=True):
+def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfile, look_forward, n_jobs=6, update_feature_matrix=True):
     """
     Load feature matrix and label vector for a given period, calculating features annually.
     """
@@ -131,7 +130,7 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
         # Extract features for the current year
         df_windows, wd = _construct_windows(data, Nw_current, t0, iw, io, dtw, dto, data_streams)
-        fm = _extract_features(df_windows, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+        fm = _extract_features(data, ti, tf, Nw, iw, io, dtw, dto, data_streams, featdir, featfile, look_forward, n_jobs, update_feature_matrix)
         fm.index = pd.Series(wd)
 
         # Concatenate the results to the main feature matrix and labels
@@ -249,7 +248,8 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
         featdir=featdir,
         featfile=featfile,
         n_jobs=n_jobs,
-        update_feature_matrix=True
+        update_feature_matrix=True,
+        look_forward=look_forward
     )
 
     # 指定された期間を除外
