@@ -66,7 +66,7 @@ class ForecastModel:
         self.overlap = float(self.io) / self.iw
         self.dto = timedelta(days=(1.0 - self.overlap) * self.window)
         
-        self.exclude_dates_list = []
+        self.exclude_dates_ranges = []
         self.update_feature_matrix = True
         self.n_jobs = 6
         

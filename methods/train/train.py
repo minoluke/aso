@@ -277,7 +277,7 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
     )
 
     # 指定された期間を除外
-    X_filtered, y_filtered = exclude_dates(fM, ys['label'], exclude_date_ranges)
+    X_filtered, y_filtered = exclude_dates_func(fM, ys['label'], exclude_date_ranges)
 
     if y_filtered.shape[0] != X_filtered.shape[0]:
         raise ValueError("Dimensions of feature matrix and label vector do not match after excluding dates.")
