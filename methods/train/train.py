@@ -66,8 +66,8 @@ def exclude_dates_func(X, y, exclude_dates_ranges):
     """
     Drop rows from feature matrix and label vector based on exclusion periods.
     """
-    for exclude_date_range in exclude_dates_ranges:
-        t0, t1 = [datetimeify(dt) for dt in exclude_date_range]
+    for exclude_dates_range in exclude_dates_ranges:
+        t0, t1 = [datetimeify(dt) for dt in exclude_dates_range]
         inds = (y.index < t0) | (y.index >= t1)
         X = X.loc[inds]
         y = y.loc[inds]
@@ -176,7 +176,7 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
 
 def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data_streams, ti=None, tf=None,
-          Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_date_ranges=[]):
+          Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates_ranges=[]):
     """
     Classifier モデルを構築・訓練する。
     
@@ -277,7 +277,7 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
     )
 
     # 指定された期間を除外
-    X_filtered, y_filtered = exclude_dates_func(fM, ys['label'], exclude_date_ranges)
+    X_filtered, y_filtered = exclude_dates_func(fM, ys['label'], exclude_dates_ranges)
 
     if y_filtered.shape[0] != X_filtered.shape[0]:
         raise ValueError("Dimensions of feature matrix and label vector do not match after excluding dates.")
