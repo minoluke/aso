@@ -106,73 +106,49 @@ def collect_features(modeldir, save=None):
 
 def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfile, n_jobs=6, update_feature_matrix=True):
     """
-    Load feature matrix and label vector for a given period.
+    Load feature matrix and label vector for a given period, calculating features annually.
     """
     makedir(featdir)
 
     # Features to compute
     cfp = ComprehensiveFCParameters()
 
-    # Check if feature matrix already exists and what it contains
-    if os.path.isfile(featfile):
-        existing_fm = pd.read_csv(featfile, index_col=0, parse_dates=['time'], infer_datetime_format=True)
-        ti0, tf0 = existing_fm.index[0], existing_fm.index[-1]
-        Nw0 = len(existing_fm)
-        existing_features = set([hd.split('__')[1] for hd in existing_fm.columns])
+    # Prepare yearly intervals
+    ts = [datetime(year, 1, 1) for year in range(ti.year + 1, tf.year + 1)]
+    if ti < data.ti:
+        ti = data.ti
+    ts.insert(0, ti)
+    ts.append(tf)
 
-        # Determine padding
-        pad_left = int((ti0 - ti) / dto) if ti < ti0 else 0
-        pad_right = int(((ti + (Nw - 1) * dto) - tf0) / dto) if tf > tf0 else 0
-        i0 = abs(pad_left) if pad_left < 0 else 0
-        i1 = Nw0 + max(pad_left, 0) + pad_right
+    # Initialize feature matrix and labels
+    fM, ys = pd.DataFrame(), pd.DataFrame()
 
-        # Determine new features
-        new_features = set(cfp.keys()) - existing_features
-        more_cols = bool(new_features)
-        if more_cols:
-            cfp = {k: v for k, v in cfp.items() if k in new_features}
+    # Loop over each year
+    for t0, t1 in zip(ts[:-1], ts[1:]):
+        print(f"Feature extraction from {t0.strftime('%Y-%m-%d')} to {t1.strftime('%Y-%m-%d')}")
 
-        # Update feature matrix if needed
-        if (more_cols or pad_left > 0 or pad_right > 0) and update_feature_matrix:
-            fm = existing_fm.copy()
+        # Calculate number of windows for the current period
+        Nw_current = int(np.floor(((t1 - t0) / timedelta(days=1)) / (iw - io)))
 
-            # Add new columns
-            if more_cols:
-                df_new, wd_new = _construct_windows(data, Nw0, ti0, iw, io, dtw, dto, data_streams, i0=0, i1=Nw0)
-                fm_new = extract_features(df_new, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
-                fm_new.index = pd.Series(wd_new)
-                fm = pd.concat([fm, fm_new], axis=1, sort=False)
-
-            # Add new rows on the left
-            if pad_left > 0:
-                df_left, wd_left = _construct_windows(data, pad_left, ti, iw, io, dtw, dto, data_streams, i0=0, i1=pad_left)
-                fm_left = extract_features(df_left, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
-                fm_left.index = pd.Series(wd_left)
-                fm = pd.concat([fm_left, fm], sort=False)
-
-            # Add new rows on the right
-            if pad_right > 0:
-                df_right, wd_right = _construct_windows(data, pad_right, ti + (Nw - pad_right) * dto, iw, io, dtw, dto, data_streams, i0=0, i1=pad_right)
-                fm_right = extract_features(df_right, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
-                fm_right.index = pd.Series(wd_right)
-                fm = pd.concat([fm, fm_right], sort=False)
-
-            # Save updated feature matrix
-            fm.to_csv(featfile, index=True, index_label='time')
-            fm = fm.iloc[i0:i1]
-        else:
-            # Read relevant part of the existing feature matrix
-            fm = existing_fm.iloc[i0:i1]
-    else:
-        # Create feature matrix from scratch
-        df_windows, wd = _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams)
+        # Extract features for the current year
+        df_windows, wd = _construct_windows(data, Nw_current, t0, iw, io, dtw, dto, data_streams)
         fm = extract_features(df_windows, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
         fm.index = pd.Series(wd)
-        fm.to_csv(featfile, index=True, index_label='time')
 
-    # Compute labels
-    ys = pd.DataFrame([data._is_eruption_in(days=dtw.days, from_time=t) for t in pd.to_datetime(fm.index)], columns=['label'], index=fm.index)
-    return fm, ys
+        # Concatenate the results to the main feature matrix and labels
+        fM = pd.concat([fM, fm], sort=False)
+        ys_current = pd.DataFrame(
+            [data._is_eruption_in(days=dtw.days, from_time=t) for t in pd.to_datetime(fm.index)],
+            columns=['label'],
+            index=fm.index
+        )
+        ys = pd.concat([ys, ys_current])
+
+    # Save the final feature matrix
+    fM.to_csv(featfile, index=True, index_label='time')
+
+    return fM, ys
+
 
 
 def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data_streams, ti=None, tf=None,
