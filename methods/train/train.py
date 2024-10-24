@@ -34,8 +34,8 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed,ran
     # Feature selection
     select = FeatureSelector(n_jobs=0, ml_task='classification')
     select.fit_transform(fMt, yst)
-    fts = select.features_[:Nfts]
-    pvs = select.p_values_[:Nfts]
+    fts = select.features[:Nfts]
+    pvs = select.p_values[:Nfts]
     fMt = fMt[fts]
 
     # Save selected features and their p-values
