@@ -167,5 +167,6 @@ class ForecastModel:
             window=self.window,
             look_forward=self.look_forward,
             overlap=self.overlap,
-            od=self.od
+            od=self.od,
+            data_streams=self.data_streams, 
         )
