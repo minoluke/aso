@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from methods.helper.helper import get_classifier, makedir, datetimeify
 from methods.feature_extract.feature_extract import _construct_windows, extract_features
 
-def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, random_state):
+def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, *,random_state):
     """
     Train a single model with undersampling and feature selection.
     """
@@ -176,22 +176,59 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
 
 def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data_streams, ti=None, tf=None,
-          Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_dates_ranges=[]):
+          Nfts=20, Ncl=100, retrain=False, classifier="DT", random_seed=0, n_jobs=6, exclude_date_ranges=[]):
     """
-    Construct and train classifier models.
+    Classifier モデルを構築・訓練する。
+    
+    Parameters:
+    -----------
+    data : TremorData
+        Tremor データを含むオブジェクト。
+    modeldir : str
+        モデルを保存するディレクトリ。
+    featdir : str
+        特徴量マトリックスを保存するディレクトリ。
+    featfile : str
+        特徴量マトリックスのファイルパス。
+    window : float
+        ウィンドウの長さ（日数）。
+    overlap : float
+        ウィンドウの重なり率。
+    look_forward : float
+        予測期間（日数）。
+    data_streams : list
+        特徴量を抽出するデータストリーム。
+    ti : str or datetime.datetime, optional
+        訓練期間の開始時刻。指定がなければデータの開始時刻。
+    tf : str or datetime.datetime, optional
+        訓練期間の終了時刻。指定がなければデータの終了時刻。
+    Nfts : int, optional
+        使用する特徴量の数。デフォルトは20。
+    Ncl : int, optional
+        訓練する分類器モデルの数。デフォルトは100。
+    retrain : bool, optional
+        保存されたモデルを使用するか、新たに訓練するか。デフォルトはFalse。
+    classifier : str, optional
+        訓練する分類器の種類（例："DT"）。デフォルトは"DT"。
+    random_seed : int, optional
+        再現性のためのランダムシード。デフォルトは0。
+    n_jobs : int, optional
+        並列処理に使用するCPUコア数。デフォルトは6。
+    exclude_date_ranges : list of lists, optional
+        訓練中に除外する期間のリスト（各要素は [start_date, end_date] のリスト）。
     """
     makedir(modeldir)
 
-    # Initialize training interval
-    ti_train = datetimeify(ti) if ti else data.ti
-    tf_train = datetimeify(tf) if tf else data.tf
+    # 訓練期間の初期化
+    ti_train = datetime.strptime(ti, '%Y-%m-%d') if isinstance(ti, str) else ti if ti else data.ti
+    tf_train = datetime.strptime(tf, '%Y-%m-%d') if isinstance(tf, str) else tf if tf else data.tf
 
     if tf_train > data.tf:
         raise ValueError(f"Model end date '{tf_train}' beyond data range '{data.tf}'")
     if ti_train < data.ti:
         raise ValueError(f"Model start date '{ti_train}' predates data range '{data.ti}'")
 
-    # Define window parameters
+    # ウィンドウパラメータの定義
     dtw = timedelta(days=window)
     dto = timedelta(days=(1.0 - overlap) * window)
     iw = int(window)
@@ -202,7 +239,7 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
     overlap = float(io) / iw
     dto = timedelta(days=(1.0 - overlap) * window)
 
-    # Check if any model training is required
+    # 訓練が必要かどうかのチェック
     if not retrain:
         run_models = False
         model, _ = get_classifier(classifier)
@@ -216,13 +253,13 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
             print("All models are already trained. Skipping training.")
             return
     else:
-        # Delete old model files
+        # 既存のモデルファイルを削除
         old_models = glob(os.path.join(modeldir, '*'))
         for fl in old_models:
             os.remove(fl)
         print("Old model files removed.")
 
-    # Load feature matrix and label vector
+    # 特徴量マトリックスとラベルベクトルの読み込み
     fM, ys = load_data(
         data=data,
         ti=ti_train,
@@ -232,38 +269,39 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
         dtw=dtw,
         dto=dto,
         Nw=int(np.floor(((tf_train - ti_train) / timedelta(days=1)) / (iw - io))),
-        data_streams=data_streams,  # Pass data_streams here
+        data_streams=data_streams,  # data_streams をここで渡す
         featdir=featdir,
         featfile=featfile,
         n_jobs=n_jobs,
         update_feature_matrix=True
     )
 
-    # Exclude specified dates
-    X_filtered, y_filtered = exclude_dates_func(fM, ys['label'], exclude_dates_ranges)
+    # 指定された期間を除外
+    X_filtered, y_filtered = exclude_dates(fM, ys['label'], exclude_date_ranges)
 
     if y_filtered.shape[0] != X_filtered.shape[0]:
         raise ValueError("Dimensions of feature matrix and label vector do not match after excluding dates.")
 
-    # Set up model training
+    # モデル訓練のセットアップ
     if n_jobs > 1:
         pool = Pool(n_jobs)
         mapper = pool.imap
     else:
         mapper = map
 
-    train_func = partial(
-        train_one_model,
+    # partial の代わりに lambda を使用
+    train_func = lambda random_state: train_one_model(
         fM=X_filtered,
         ys=y_filtered,
         Nfts=Nfts,
         modeldir=modeldir,
         classifier=classifier,
         retrain=retrain,
-        random_seed=random_seed
+        random_seed=random_seed,
+        random_state=random_state
     )
 
-    # Train models with progress indication
+    # モデルの訓練（進捗表示付き）
     for i, _ in enumerate(mapper(train_func, range(Ncl))):
         cf = (i + 1) / Ncl
         print(f"Building models: [{'#' * round(50 * cf) + '-' * round(50 * (1 - cf))}] {100. * cf:.2f}%", end='\r')
@@ -273,14 +311,14 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
         pool.close()
         pool.join()
 
-    # Free memory
+    # メモリの解放
     del fM, ys, X_filtered, y_filtered
     gc.collect()
 
-    # Collect feature frequencies
+    # 特徴量頻度の収集
     collect_features(modeldir)
 
-    # Copy 'all.fts' to consensus directory
+    # 'all.fts' をコンセンサスディレクトリにコピー
     all_fts_path = os.path.join(modeldir, 'all.fts')
     if os.path.exists(all_fts_path):
         consensus_dir = os.path.join('save', 'consensus', f"{window}_{look_forward}")
