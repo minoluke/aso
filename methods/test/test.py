@@ -222,9 +222,9 @@ def forecast(data, use_model=None, ti=None, tf=None, recalculate=False, n_jobs=6
         # Partial function for predict_one_model
         predict_func = partial(
             predict_one_model,
-            fM=fm,
-            model_path=use_model,
-            pref=pref
+            fm,
+            use_model,
+            pref
         )
     
         # Run predictions with progress indication
