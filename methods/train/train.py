@@ -13,13 +13,12 @@ from sklearn.model_selection import GridSearchCV, ShuffleSplit
 from sklearn.tree import DecisionTreeClassifier
 from imblearn.under_sampling import RandomUnderSampler
 from tsfresh.transformers import FeatureSelector
-from tsfresh import extract_features, select_features
 from tsfresh.utilities.dataframe_functions import impute
 from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 from datetime import datetime, timedelta
 
 from methods.helper.helper import get_classifier, makedir, datetimeify
-from methods.feature_extract.feature_extract import _construct_windows, extract_features
+from methods.feature_extract.feature_extract import _construct_windows, _extract_features
 
 def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed,random_state):
     """
@@ -132,7 +131,7 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
 
         # Extract features for the current year
         df_windows, wd = _construct_windows(data, Nw_current, t0, iw, io, dtw, dto, data_streams)
-        fm = extract_features(df_windows, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
+        fm = _extract_features(df_windows, column_id='id', n_jobs=n_jobs, default_fc_parameters=cfp, impute_function=impute)
         fm.index = pd.Series(wd)
 
         # Concatenate the results to the main feature matrix and labels
@@ -148,6 +147,7 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
     fM.to_csv(featfile, index=True, index_label='time')
 
     return fM, ys
+
 
 
 
