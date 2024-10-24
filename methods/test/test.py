@@ -208,7 +208,8 @@ def forecast(data, use_model=None, ti=None, tf=None, recalculate=False, n_jobs=6
             featdir=os.path.join(rootdir, 'feature'),
             featfile=os.path.join(rootdir, 'feature', 'forecast_features.csv'),
             n_jobs=n_jobs,
-            update_feature_matrix=True
+            update_feature_matrix=True,
+            look_forward=look_forward
         )
     
         # Set up multiprocessing pool
