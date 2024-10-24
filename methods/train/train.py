@@ -285,9 +285,10 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
     # モデル訓練のセットアップ
     if n_jobs > 1:
         pool = Pool(n_jobs)
-        mapper = pool.imap
+        mapper = pool.starmap
     else:
-        mapper = map
+        # シングルプロセスの場合は starmap に似た動作をする
+        mapper = lambda func, iterable: map(func, iterable)
 
     # partial の代わりに lambda を使用
     train_func = lambda random_state: train_one_model(
