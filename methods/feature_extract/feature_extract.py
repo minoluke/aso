@@ -51,22 +51,53 @@ def _construct_windows(data, Nw, ti, iw, io, dtw, dto, data_streams, i0=0, i1=No
         i1 = Nw
 
     # Get data for windowing period
-    df = data.get_data(ti - dtw, ti + (Nw - 1) * dto)[data_streams]
+    start_time = ti - dtw
+    end_time = ti + (Nw - 1) * dto
+    df = data.get_data(start_time, end_time)[data_streams]
+
+    # Debug: Print data range and length
+    print(f"Constructing windows from {start_time} to {end_time}")
+    print(f"Data length: {len(df)}")
+
+    # Calculate expected length
+    expected_length = (Nw - 1) * (iw - io) + iw
+    actual_length = len(df)
+    print(f"Expected data length: {expected_length}, Actual data length: {actual_length}")
+
+    if actual_length < expected_length:
+        print(f"Insufficient data: expected at least {expected_length} samples, got {actual_length}")
+        Nw = int((actual_length - iw) / (iw - io)) + 1
+        i1 = min(i1, Nw)
+        print(f"Adjusted number of windows to: {Nw}")
 
     # Create windows
     dfs = []
+    window_dates = []
     for i in range(i0, i1):
         start_idx = i * (iw - io)
         end_idx = start_idx + iw
+        print(f"Window {i}: start_idx={start_idx}, end_idx={end_idx}")
+        if end_idx > len(df):
+            print(f"Window {i}: end_idx {end_idx} exceeds data length {len(df)}. Skipping.")
+            continue
         dfi = df.iloc[start_idx:end_idx]
-        if len(dfi) != iw:
-            print(f"Window {i}: not equal length")
+        actual_length = len(dfi)
+        if actual_length != iw:
+            print(f"Window {i}: not equal length ({actual_length} != {iw})")
+            # パディングを行う場合
+            dfi = dfi.reindex(range(start_idx, end_idx))
+            dfi['id'] = i
+            dfi = dfi.fillna(method='ffill')  # 前方補完
+            dfs.append(dfi)
+            window_dates.append(ti + i * dto)
             continue
         dfi = dfi.copy()
         dfi['id'] = i
         dfs.append(dfi)
+        window_dates.append(ti + i * dto)
+    if not dfs:
+        raise ValueError("No valid windows found. Check data and window parameters.")
     df_windows = pd.concat(dfs)
-    window_dates = [ti + i * dto for i in range(i0, i1)]
     return df_windows, window_dates
 
 
