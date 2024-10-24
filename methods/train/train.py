@@ -282,30 +282,33 @@ def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data
     if y_filtered.shape[0] != X_filtered.shape[0]:
         raise ValueError("Dimensions of feature matrix and label vector do not match after excluding dates.")
 
+
     # モデル訓練のセットアップ
     if n_jobs > 1:
         pool = Pool(n_jobs)
         mapper = pool.starmap
     else:
-        # シングルプロセスの場合は starmap に似た動作をするゆお
-        mapper = lambda func, iterable: map(func, iterable)
+        mapper = None  # シングルプロセスの場合は後で直接呼び出す
 
-    # partial の代わりに lambda を使用
-    train_func = lambda random_state: train_one_model(
-        fM=X_filtered,
-        ys=y_filtered,
-        Nfts=Nfts,
-        modeldir=modeldir,
-        classifier=classifier,
-        retrain=retrain,
-        random_seed=random_seed,
-        random_state=random_state
-    )
+    # 引数のリストを準備
+    args = [
+        (X_filtered, y_filtered, Nfts, modeldir, classifier, retrain, random_seed, i)
+        for i in range(Ncl)
+    ]
 
     # モデルの訓練（進捗表示付き）
-    for i, _ in enumerate(mapper(train_func, range(Ncl))):
-        cf = (i + 1) / Ncl
-        print(f"Building models: [{'#' * round(50 * cf) + '-' * round(50 * (1 - cf))}] {100. * cf:.2f}%", end='\r')
+    if n_jobs > 1:
+        # 並列処理
+        results = mapper(train_one_model, args)
+        for i, _ in enumerate(results):
+            cf = (i + 1) / Ncl
+            print(f"Building models: [{'#' * round(50 * cf) + '-' * round(50 * (1 - cf))}] {100. * cf:.2f}%", end='\r')
+    else:
+        # シングルプロセス
+        for i, _ in enumerate([train_one_model(*arg) for arg in args]):
+            cf = (i + 1) / Ncl
+            print(f"Building models: [{'#' * round(50 * cf) + '-' * round(50 * (1 - cf))}] {100. * cf:.2f}%", end='\r')
+
     print("\nModel training completed.")
 
     if n_jobs > 1:
