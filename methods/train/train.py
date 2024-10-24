@@ -61,15 +61,33 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed,ran
 
 
 def exclude_dates_func(X, y, exclude_dates_ranges):
+    """ Drop rows from feature matrix and label vector.
+
+        Parameters:
+        -----------
+        X : pd.DataFrame
+            Matrix to drop columns.
+        y : pd.DataFrame
+            Label vector.
+        exclude_dates : list
+            List of time windows to exclude during training. Facilitates dropping of eruption 
+            windows within analysis period. E.g., exclude_dates = [['2012-06-01','2012-08-01'],
+            ['2015-01-01','2016-01-01']] will drop Jun-Aug 2012 and 2015-2016 from analysis.
+
+        Returns:
+        --------
+        Xr : pd.DataFrame
+            Reduced matrix.
+        yr : pd.DataFrame
+            Reduced label vector.
     """
-    Drop rows from feature matrix and label vector based on exclusion periods.
-    """
-    for exclude_dates_range in exclude_dates_ranges:
-        t0, t1 = [datetimeify(dt) for dt in exclude_dates_range]
-        inds = (y.index < t0) | (y.index >= t1)
-        X = X.loc[inds]
-        y = y.loc[inds]
-    return X, y
+    if len(exclude_dates_ranges) != 0:
+        for exclude_date_range in exclude_dates_ranges:
+            t0,t1 = [datetimeify(dt) for dt in exclude_date_range]
+            inds = (y.index<t0)|(y.index>=t1)
+            X = X.loc[inds]
+            y = y.loc[inds]
+    return X,y
 
 
 def collect_features(modeldir, save=None):
@@ -146,8 +164,6 @@ def load_data(data, ti, tf, iw, io, dtw, dto, Nw, data_streams, featdir, featfil
     fM.to_csv(featfile, index=True, index_label='time')
 
     return fM, ys
-
-
 
 
 def train(data, modeldir, featdir, featfile, window, overlap, look_forward, data_streams, ti=None, tf=None,
