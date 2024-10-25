@@ -9,6 +9,8 @@ from tsfresh.utilities.dataframe_functions import impute
 
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
+import time
+
 class FeatureExtractionModel(BaseModel):
     """
     Methods:
@@ -120,7 +122,9 @@ class FeatureExtractionModel(BaseModel):
                     df0, wd = self._construct_windows(Nw0, ti0)
                     cfp0 = ComprehensiveFCParameters()
                     cfp0 = dict([(k, cfp0[k]) for k in cfp0.keys() if k in new_cols])
+                    feature_start = time.time()
                     fm2 = extract_features(df0, column_id='id', n_jobs=self.n_jobs, default_fc_parameters=cfp0, impute_function=impute)
+                    print(f"feature time: {time.time() - feature_start:.2f} seconds")
                     fm2.index = pd.Series(wd)
                     
                     fm = pd.concat([fm,fm2], axis=1, sort=False)
@@ -129,13 +133,17 @@ class FeatureExtractionModel(BaseModel):
                     # expanded earlier
                 if pad_left > 0:
                     df, wd = self._construct_windows(Nw, ti, i1=pad_left)
+                    feature_start = time.time()
                     fm2 = extract_features(df, column_id='id', n_jobs=self.n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                    print(f"feature time: {time.time() - feature_start:.2f} seconds")
                     fm2.index = pd.Series(wd)
                     fm = pd.concat([fm2,fm], sort=False)
                     # expanded later
                 if pad_right > 0:
                     df, wd = self._construct_windows(Nw, ti, i0=Nw - pad_right)
+                    feature_start = time.time()
                     fm2 = extract_features(df, column_id='id', n_jobs=self.n_jobs, default_fc_parameters=cfp, impute_function=impute)
+                    print(f"feature time: {time.time() - feature_start:.2f} seconds")
                     fm2.index = pd.Series(wd)
                     fm = pd.concat([fm,fm2], sort=False)
                 
@@ -149,7 +157,9 @@ class FeatureExtractionModel(BaseModel):
         else:
             # create feature matrix from scratch   
             df, wd = self._construct_windows(Nw, ti)
+            feature_start = time.time()
             fm = extract_features(df, column_id='id', n_jobs=self.n_jobs, default_fc_parameters=cfp, impute_function=impute)
+            print(f"feature time: {time.time() - feature_start:.2f} seconds")
             fm.index = pd.Series(wd)
             fm.to_csv(self.featfile, index=True, index_label='time')
             

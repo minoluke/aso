@@ -84,7 +84,7 @@ class TrainModel(FeatureExtractionModel):
         ts.append(tf)
 
         for t0,t1 in zip(ts[:-1], ts[1:]):
-            print('Extract features between {:s} and {:s}'.format(t0.strftime('%Y-%m-%d'), t1.strftime('%Y-%m-%d')))
+            print('period from {:s} to {:s}'.format(t0.strftime('%Y-%m-%d'), t1.strftime('%Y-%m-%d')))
             fM,ys = self._extract_features(ti,t1)
 
         self.ti_prev = ti
@@ -214,10 +214,8 @@ class TrainModel(FeatureExtractionModel):
             # delete old model files
             _ = [os.remove(fl) for fl in  glob('{:s}/*'.format(self.modeldir))]
 
-        feature_start = time.time()
         # get feature matrix and label vector
         fM, ys = self._load_data(self.ti_train, self.tf_train)
-        print(f"feature time: {time.time() - feature_start:.2f} seconds")
 
         # manually drop windows (rows)
         fM, ys = self._exclude_dates(fM, ys, exclude_dates)
