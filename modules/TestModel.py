@@ -31,7 +31,7 @@ class TestModel(FeatureExtractionModel):
             raise ValueError("feature file numbering in '{:s}' appears not consecutive".format(self._use_model))
         
         self.classifier = []
-        for classifier in ['DT']:
+        for classifier in ["DT"]:
             model = get_classifier(classifier)[0]
             pref = type(model).__name__
             if all([os.path.isfile(self._use_model+os.sep+'{:s}_{:04d}.pkl'.format(pref,ind)) for ind in inds]):
@@ -139,8 +139,7 @@ class TestModel(FeatureExtractionModel):
         makedir(wl_lfl_folder)
         save_path = os.path.join(wl_lfl_folder, f"{cv}_consensus.csv")
         forecast.to_csv(save_path, index=True, index_label='time')
-        #forecast.to_csv('{:s}/consensus.csv'.format(self.preddir), index=True, index_label='time')
-        #forecast.to_csv('/Users/minoluke/Desktop/修士/test/tmp/consensus.csv'.format(self.preddir), index=True, index_label='time')
+        
         # memory management
         if len(run_predictions)>0:
             del fM
