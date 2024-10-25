@@ -82,10 +82,12 @@ class TrainModel(FeatureExtractionModel):
             ti = self.data.ti + self.dtw
         ts.insert(0,ti)
         ts.append(tf)
-
+        
+        feature_start = time.time()
         for t0,t1 in zip(ts[:-1], ts[1:]):
             print('period from {:s} to {:s}'.format(t0.strftime('%Y-%m-%d'), t1.strftime('%Y-%m-%d')))
             fM,ys = self._extract_features(ti,t1)
+        print(f"feature time: {time.time() - feature_start:.2f} seconds")
 
         self.ti_prev = ti
         self.tf_prev = tf
