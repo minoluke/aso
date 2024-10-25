@@ -58,6 +58,7 @@ def get_classifier(classifier):
 
     if classifier == "DT":  # Decision Tree
         if GPU_AVAILABLE:
+            print("Using GPU Decision Tree")
             model = cuml_DecisionTreeClassifier(class_weight='balanced')
             grid = {
                 'max_depth': [3, 5, 7],
