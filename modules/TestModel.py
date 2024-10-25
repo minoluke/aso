@@ -81,8 +81,7 @@ class TestModel(FeatureExtractionModel):
             
         model,classifier = get_classifier(self.classifier)
 
-        # logic to determine which models need to be run and which to be 
-        # read from disk
+        # logic to determine which models need to be run and which to be read from disk
         pref = type(model).__name__
         fls = glob('{:s}/{:s}_*.pkl'.format(model_path, pref))
         load_predictions = []

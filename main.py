@@ -1,51 +1,51 @@
 #!/usr/bin/env python3
-import os, sys
-import argparse
+import os, sys, argparse, logging, warnings
+from datetime import timedelta
+from sklearn.exceptions import FitFailedWarning
+for warning in [UserWarning, FutureWarning, FitFailedWarning]:
+    warnings.filterwarnings("ignore", category=warning)
+
 sys.path.insert(0, os.path.abspath('..'))
 from modules import *
-from datetime import timedelta
-import logging
-logger = logging.getLogger("tsfresh")
-logger.setLevel(logging.ERROR)
-import warnings
-from sklearn.exceptions import FitFailedWarning
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=FitFailedWarning)
+logging.getLogger("tsfresh").setLevel(logging.ERROR)
 
+import time 
 
 def train_test(od,lb,lf,cv):
+    start_time = time.time()
 
     month = timedelta(days=365.25/12)
-    td = ObservationData()
+    observation_m = ObservationData()
+
+    observation_start = time.time()
+    te = observation_m.tes[int(cv)]
+    print(f"Observation data loading time: {time.time() - observation_start:.2f} seconds")
+
+    n_jobs = 6
         
-    if od == 'tremor':
-        data_streams = ['rsam', 'mf', 'hf', 'dsar']
-    elif od == 'gas':
-        data_streams = ['gas_max', 'gas_min', 'gas_mean', 'gas_number']
-    elif od == 'magnetic':
-        data_streams = ['magnetic']
-    elif od == 'kakou':
-        data_streams = ['kakouwall_temp']
-    elif od == 'tilt':
-        data_streams = ['tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW']
-    elif od == 'yudamari':
-        data_streams = ['yudamari_number', 'yudamari_temp']
-    elif od == 'all':
-        data_streams = ['rsam', 'mf', 'hf', 'dsar','gas_max', 'gas_min', 'gas_mean', 'gas_number','magnetic','kakouwall_temp','tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW','yudamari_number', 'yudamari_temp']
-    else:
+    data_streams_dict = {
+        'tremor': ['rsam', 'mf', 'hf', 'dsar'],
+        'gas': ['gas_max', 'gas_min', 'gas_mean', 'gas_number'],
+        'magnetic': ['magnetic'],
+        'kakou': ['kakouwall_temp'],
+        'tilt': ['tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW'],
+        'yudamari': ['yudamari_number', 'yudamari_temp'],
+        'all': ['rsam', 'mf', 'hf', 'dsar', 'gas_max', 'gas_min', 'gas_mean', 'gas_number','magnetic', 'kakouwall_temp', 'tilt1_NS', 'tilt1_EW', 'tilt2_NS', 'tilt2_EW','yudamari_number', 'yudamari_temp']
+    }
+
+    data_streams = data_streams_dict.get(od)
+    if data_streams is None:
         raise ValueError("Invalid value for 'od'")
 
+    train_start = time.time()
     train_m = TrainModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
-    test_m = TestModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
-    
-    # set the available CPUs higher or lower as appropriate
-    n_jobs = 6
+    train_m.train(cv=cv, ti='2010-01-01', tf='2022-12-31', retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs) 
+    print(f"Training time: {time.time() - train_start:.2f} seconds")
 
-    te = td.tes[int(cv)]
-    train_m.train(cv=cv, ti='2010-01-01', tf='2022-12-31', retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
-    
+    test_start = time.time()
+    test_m = TestModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
     test_m.test(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
+    print(f"Testing time: {time.time() - test_start:.2f} seconds")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')

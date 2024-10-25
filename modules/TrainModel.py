@@ -82,7 +82,7 @@ class TrainModel(FeatureExtractionModel):
         ts.append(tf)
 
         for t0,t1 in zip(ts[:-1], ts[1:]):
-            print('feature extraction {:s} to {:s}'.format(t0.strftime('%Y-%m-%d'), t1.strftime('%Y-%m-%d')))
+            print('Extract features between {:s} and {:s}'.format(t0.strftime('%Y-%m-%d'), t1.strftime('%Y-%m-%d')))
             fM,ys = self._extract_features(ti,t1)
 
         self.ti_prev = ti

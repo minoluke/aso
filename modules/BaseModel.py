@@ -111,15 +111,14 @@ class BaseModel(object):
 
         # naming convention and file system attributes
         if root is None:
-            self.root = 'fm_{:3.2f}wndw_{:3.2f}ovlp_{:3.2f}lkfd'.format(self.look_backward, self.overlap, self.look_forward)
-            self.root += '_'+((('{:s}-')*len(self.data_streams))[:-1]).format(*sorted(self.data_streams))
+            self.root = '{}_{}wndw_{}lkfd_{:3.2f}ovlp'.format(self.od, int(self.look_backward), int(self.look_forward), self.overlap)
         else:
             self.root = root
         self.rootdir = os.sep.join(getfile(currentframe()).split(os.sep)[:-2])
-        self.plotdir = r'{:s}/plots/{:s}'.format(self.rootdir, self.root)
-        self.modeldir = r'{:s}/models/{:s}'.format(self.rootdir, self.root)
-        self.featdir = r'{:s}/features'.format(self.rootdir, self.root)
+        self.plotdir = r'{:s}/save/figures/plots/{:s}'.format(self.rootdir, self.root)
+        self.modeldir = r'{:s}/save/rawdata/models/{:s}'.format(self.rootdir, self.root)
+        self.featdir = r'{:s}/save/rawdata/features'.format(self.rootdir, self.root)
         self.featfile = r'{:s}/{:s}_features.csv'.format(self.featdir, self.root)
-        self.preddir = r'{:s}/predictions/{:s}'.format(self.rootdir, self.root)
-        self.consensusdir = r'{:s}/consensus/'.format(self.rootdir)
+        self.preddir = r'{:s}/save/rawdata/pred_each/{:s}'.format(self.rootdir, self.root)
+        self.consensusdir = r'{:s}/save/rawdata/consensus/'.format(self.rootdir)
     

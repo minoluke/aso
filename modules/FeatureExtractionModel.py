@@ -45,7 +45,6 @@ class FeatureExtractionModel(BaseModel):
 
         # get data for windowing period
         df = self.data.get_data(ti-self.dtw, ti+(Nw-1)*self.dto)[self.data_streams]
-        #print(df)
 
         # create windows
         dfs = []
