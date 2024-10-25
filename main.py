@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=FitFailedWarning)
 
 
-def forecast_dec_1day(od,lb,lf,cv):
+def train_test(od,lb,lf,cv):
 
     month = timedelta(days=365.25/12)
     td = ObservationData()
@@ -48,18 +48,14 @@ def forecast_dec_1day(od,lb,lf,cv):
     test_m.test(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
 
 if __name__ == "__main__":
-    # 引数パーサーを作成
     parser = argparse.ArgumentParser(description='Process some integers.')
     
-    # 引数を追加
     parser.add_argument('od', type=str, help='The observation data parameter')
     parser.add_argument('lb', type=str, help='The look backward parameter')
     parser.add_argument('lf', type=str, help='The look forward parameter')
     parser.add_argument('cv', type=str, help='The count volcanic eruption parameter')
-    
-    # 引数を解析
+
     args = parser.parse_args()
     
-    # 関数を呼び出し
-    forecast_dec_1day(args.od,args.lb, args.lf,args.cv)
+    train_test(args.od,args.lb, args.lf,args.cv)
     
