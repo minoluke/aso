@@ -36,16 +36,16 @@ def forecast_dec_1day(od,lb,lf,cv):
     else:
         raise ValueError("Invalid value for 'od'")
 
-    fm = TrainModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
-    
+    TrainModel = TrainModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
+    TestModel = TestModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
     
     # set the available CPUs higher or lower as appropriate
     n_jobs = 6
 
     te = td.tes[int(cv)]
-    fm.train(cv=cv, ti='2010-01-01', tf='2022-12-31', retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
+    TrainModel.train(cv=cv, ti='2010-01-01', tf='2022-12-31', retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
     
-    #ys = fm.forecast(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
+    TestModel.test(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
 
 if __name__ == "__main__":
     # 引数パーサーを作成

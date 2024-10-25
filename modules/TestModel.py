@@ -39,7 +39,7 @@ class TestModel(FeatureExtractionModel):
                 return
         raise ValueError("did not recognise models in '{:s}'".format(self._use_model))
     
-    def forecast(self,cv=0, ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
+    def test(self,cv=0, ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
         """ Use classifier models to forecast eruption likelihood.
 
             Parameters:
