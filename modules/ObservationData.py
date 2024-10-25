@@ -3,7 +3,7 @@ from datetime import datetime
 from inspect import getfile, currentframe
 import pandas as pd
 
-from helper import datetimeify
+from .helper import datetimeify
 
 
 class ObservationData(object):

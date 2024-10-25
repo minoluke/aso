@@ -1,8 +1,8 @@
 import os
 from datetime import timedelta
 from inspect import getfile, currentframe
-from ObservationData import ObservationData
-from helper import datetimeify
+from .ObservationData import ObservationData
+from .helper import datetimeify
  
 class BaseModel(object):
     """ Object for train and running forecast models.

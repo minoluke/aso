@@ -1,4 +1,4 @@
-from BaseModel import BaseModel
+from .BaseModel import BaseModel
 from multiprocessing import Pool
 from functools import partial
 from glob import glob
@@ -7,7 +7,7 @@ import gc
 import os, joblib
 import pandas as pd
 import numpy as np
-from helper import get_classifier, datetimeify
+from .helper import get_classifier, datetimeify
 
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 

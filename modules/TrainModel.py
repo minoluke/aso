@@ -1,4 +1,4 @@
-from BaseModel import BaseModel
+from .BaseModel import BaseModel
 
 import os
 import gc
@@ -8,7 +8,7 @@ import pandas as pd
 from datetime import datetime
 from functools import partial
 from multiprocessing import Pool
-from helper import datetimeify, get_classifier
+from .helper import datetimeify, get_classifier
 
 import joblib
 import numpy as np
