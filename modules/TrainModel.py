@@ -18,6 +18,13 @@ from sklearn.model_selection import GridSearchCV, ShuffleSplit
 
 import time
 
+try:
+    import cupy as cp
+    from cuml.model_selection import GridSearchCV as cuml_GridSearchCV
+    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  
+except ImportError:
+    GPU_AVAILABLE = False
+
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
 class TrainModel(FeatureExtractionModel):
@@ -292,6 +299,10 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, ra
         return
     
     # train and save classifier
-    model_cv = GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy",error_score=np.nan)
-    model_cv.fit(fMt,yst)
+    if GPU_AVAILABLE:
+        model_cv = cuml_GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy")
+        model_cv.fit(fMt, yst)
+    else:
+        model_cv = GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy", error_score=np.nan)
+        model_cv.fit(fMt, yst)
     _ = joblib.dump(model_cv.best_estimator_, fl, compress=3)

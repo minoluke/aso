@@ -2,6 +2,13 @@ from datetime import datetime
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.tree import DecisionTreeClassifier
 
+try:
+    import cupy as cp
+    from cuml import DecisionTreeClassifier as cuml_DecisionTreeClassifier
+    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0 
+except ImportError:
+    GPU_AVAILABLE = False
+
 def datetimeify(t):
     """ Return datetime object corresponding to input string.
 
@@ -49,11 +56,22 @@ def get_classifier(classifier):
         DT - Decision Tree
     """
 
-    if classifier == "DT":        # decision tree
-        model = DecisionTreeClassifier(class_weight='balanced')
-        grid = {'max_depth': [3,5,7], 'criterion': ['gini','entropy'],
-            'max_features': ['auto','sqrt','log2',None]}
+    if classifier == "DT":  # Decision Tree
+        if GPU_AVAILABLE:
+            model = cuml_DecisionTreeClassifier(class_weight='balanced')
+            grid = {
+                'max_depth': [3, 5, 7],
+                'criterion': ['gini'],  # cuMLは'gini'のみサポート
+                'max_features': ['auto', 'sqrt', 'log2']
+            }
+        else:
+            model = DecisionTreeClassifier(class_weight='balanced')
+            grid = {
+                'max_depth': [3, 5, 7],
+                'criterion': ['gini', 'entropy'],
+                'max_features': ['auto', 'sqrt', 'log2', None]
+            }
     else:
-        raise ValueError("classifier '{:s}' not recognised".format(classifier))
+        raise ValueError(f"classifier '{classifier}' not recognised")
     
     return model, grid
