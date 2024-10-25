@@ -1,0 +1,17 @@
+name: aso_12
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - tsfresh  
+  - python=3.12
+  - imbalanced-learn  
+  - scikit-learn 
+  - corner 
+  - joblib 
+  - numpy  
+  - pandas 
+  - scipy 
+  - statsmodels 
+  - pip
+prefix: /anaconda3/envs/aso_12

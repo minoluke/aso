@@ -3,6 +3,7 @@ from .BaseModel import BaseModel
 import os
 import numpy as np
 import pandas as pd
+import logging, warnings
 from tsfresh import extract_features
 from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 from tsfresh.utilities.dataframe_functions import impute
