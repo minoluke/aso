@@ -1,4 +1,4 @@
-from .BaseModel import BaseModel
+from .FeatureExtractionModel import FeatureExtractionModel
 
 import os
 import gc
@@ -18,7 +18,7 @@ from sklearn.model_selection import GridSearchCV, ShuffleSplit
 
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
-class TrainModel(BaseModel):
+class TrainModel(FeatureExtractionModel):
     """
     Methods:
         _load_data

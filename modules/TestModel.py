@@ -1,4 +1,4 @@
-from .BaseModel import BaseModel
+from .FeatureExtractionModel import FeatureExtractionModel
 from multiprocessing import Pool
 from functools import partial
 from glob import glob
@@ -11,7 +11,7 @@ from .helper import get_classifier, datetimeify
 
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
-class TestModel(BaseModel):
+class TestModel(FeatureExtractionModel):
     """
     Methods:
         _detect_model
