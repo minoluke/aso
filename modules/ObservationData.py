@@ -1,15 +1,10 @@
-# general imports
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from inspect import getfile, currentframe
 import pandas as pd
 
 from helper import datetimeify
 
-_MONTH = timedelta(days=365.25/12)
-_DAY = timedelta(days=1.)
-
-makedir = lambda name: os.makedirs(name, exist_ok=True)
 
 class ObservationData(object):
     """ Object to manage acquisition and processing of seismic data.

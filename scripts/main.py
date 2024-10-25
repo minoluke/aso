@@ -2,11 +2,8 @@
 import os, sys
 import argparse
 sys.path.insert(0, os.path.abspath('..'))
-from whakaari import TremorData, ForecastModel
+from modules import *
 from datetime import timedelta
-
-# tsfresh and sklearn dump a lot of warnings - these are switched off below, but should be
-# switched back on when debugging
 import logging
 logger = logging.getLogger("tsfresh")
 logger.setLevel(logging.ERROR)
@@ -20,8 +17,7 @@ warnings.filterwarnings("ignore", category=FitFailedWarning)
 def forecast_dec_1day(od,lb,lf,cv):
 
     month = timedelta(days=365.25/12)
-    day = timedelta(days=1)
-    td = TremorData()
+    td = ObservationData()
         
     if od == 'tremor':
         data_streams = ['rsam', 'mf', 'hf', 'dsar']
@@ -40,7 +36,7 @@ def forecast_dec_1day(od,lb,lf,cv):
     else:
         raise ValueError("Invalid value for 'od'")
 
-    fm = ForecastModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
+    fm = TrainModel(ti='2010-01-01', tf='2022-12-31', look_backward=float(lb), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
     
     
     # set the available CPUs higher or lower as appropriate
@@ -48,9 +44,8 @@ def forecast_dec_1day(od,lb,lf,cv):
 
     te = td.tes[int(cv)]
     fm.train(cv=cv, ti='2010-01-01', tf='2022-12-31', retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs)      
-    #fm.train(ti='2010-01-01', tf='2018-12-31', retrain=True, n_jobs=n_jobs) 
     
-    ys = fm.forecast(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
+    #ys = fm.forecast(cv=cv, ti='2010-01-01', tf='2022-12-31', recalculate=True, n_jobs=n_jobs)  
 
 if __name__ == "__main__":
     # 引数パーサーを作成
