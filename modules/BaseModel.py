@@ -107,7 +107,7 @@ class BaseModel(object):
         self.exclude_dates = []
         self.update_feature_matrix = True
         self.n_jobs = 6
-        self.classifier = []
+        self.classifier = "DT"
 
         # naming convention and file system attributes
         if root is None:
