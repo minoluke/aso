@@ -16,6 +16,8 @@ from imblearn.under_sampling import RandomUnderSampler
 from tsfresh.transformers import FeatureSelector
 from sklearn.model_selection import GridSearchCV, ShuffleSplit
 
+import time
+
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
 class TrainModel(FeatureExtractionModel):
@@ -212,8 +214,10 @@ class TrainModel(FeatureExtractionModel):
             # delete old model files
             _ = [os.remove(fl) for fl in  glob('{:s}/*'.format(self.modeldir))]
 
+        feature_start = time.time()
         # get feature matrix and label vector
         fM, ys = self._load_data(self.ti_train, self.tf_train)
+        print(f"feature time: {time.time() - feature_start:.2f} seconds")
 
         # manually drop windows (rows)
         fM, ys = self._exclude_dates(fM, ys, exclude_dates)
@@ -233,6 +237,7 @@ class TrainModel(FeatureExtractionModel):
             mapper = map
         f = partial(train_one_model, fM, ys, Nfts, self.modeldir, self.classifier, retrain, random_seed)
 
+        train_start = time.time()
         # train models with glorious progress bar
         for i, _ in enumerate(mapper(f, range(Ncl))):
             cf = (i+1)/Ncl
@@ -240,7 +245,8 @@ class TrainModel(FeatureExtractionModel):
         if self.n_jobs > 1:
             p.close()
             p.join()
-        
+        print(f"Training time: {time.time() - train_start:.2f} seconds")
+
         # free memory
         del fM
         gc.collect()
