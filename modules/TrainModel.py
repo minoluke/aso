@@ -16,12 +16,6 @@ from imblearn.under_sampling import RandomUnderSampler
 from tsfresh.transformers import FeatureSelector
 from sklearn.model_selection import GridSearchCV, ShuffleSplit
 
-try:
-    import cupy as cp
-    from cuml.model_selection import GridSearchCV as cuml_GridSearchCV
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  
-except ImportError:
-    GPU_AVAILABLE = False
 
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
@@ -290,13 +284,6 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, ra
     if os.path.isfile(fl) and not retrain:
         return
     
-    # train and save classifier
-    if GPU_AVAILABLE:
-        print("Using GPU")
-        model_cv = cuml_GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy")
-        model_cv.fit(fMt, yst)
-    else:
-        print("Using CPU")
-        model_cv = GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy", error_score=np.nan)
-        model_cv.fit(fMt, yst)
+    model_cv = GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy", error_score=np.nan)
+    model_cv.fit(fMt, yst)
     _ = joblib.dump(model_cv.best_estimator_, fl, compress=3)
