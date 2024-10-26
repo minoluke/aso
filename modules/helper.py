@@ -17,19 +17,14 @@ def sanitize_feature_names(feature_names):
     リストまたは pd.Index の場合は各要素にクレンジングを適用。
     """
     def sanitize(name):
-        # スペースを削除
         name = name.replace(' ', '')
-        # 特殊文字をアンダースコアに置換
         return re.sub(r'[^a-zA-Z0-9_]', '_', name)
 
-    # pd.Index オブジェクトをリストに変換
     if isinstance(feature_names, pd.Index):
         feature_names = feature_names.tolist()
 
-    # 入力がリストの場合は各要素にクレンジングを適用
     if isinstance(feature_names, list):
         return [sanitize(name) for name in feature_names]
-    # 入力が単一の文字列の場合はそのままクレンジング
     elif isinstance(feature_names, str):
         return sanitize(feature_names)
     else:
@@ -37,7 +32,7 @@ def sanitize_feature_names(feature_names):
 
 def is_gpu_available():
     try:
-        libcuda = ctypes.CDLL('libcuda.so')
+        libcuda = ctypes.CDLL('nvcuda.dll')
         count = ctypes.c_int()
         result = libcuda.cuDeviceGetCount(ctypes.byref(count))
         return count.value > 0
