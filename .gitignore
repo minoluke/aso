@@ -1,7 +1,5 @@
 __pycache__/
 *.py[cod]
-controller/
 .vscode/
-*.png
 save/
 .DS_Store
