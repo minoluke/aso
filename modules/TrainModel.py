@@ -64,7 +64,7 @@ class TrainModel(FeatureExtractionModel):
 
         # read from CSV file
         try:
-            t = pd.to_datetime(pd.read_csv(self.featfile, index_col=0, parse_dates=['time'], usecols=['time'], infer_datetime_format=True).index.values)
+            t = pd.to_datetime(pd.read_csv(self.featfile, index_col=0, parse_dates=['time'], usecols=['time']).index.values)
             if (t[0] <= ti) and (t[-1] >= tf):
                 self.ti_prev = ti
                 self.tf_prev = tf
@@ -269,9 +269,7 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, ra
     # undersample data
     rus = RandomUnderSampler(sampling_strategy=0.75, random_state=random_state+random_seed)
     fMt,yst = rus.fit_resample(fM,ys)
-    yst = pd.Series(yst, index=range(len(yst)))
-    fMt.index = yst.index
-
+        
     # find significant features
     select = FeatureSelector(n_jobs=0, ml_task='classification')
     select.fit_transform(fMt,yst)
@@ -294,9 +292,11 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, ra
     
     # train and save classifier
     if GPU_AVAILABLE:
+        print("Using GPU")
         model_cv = cuml_GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy")
         model_cv.fit(fMt, yst)
     else:
+        print("Using CPU")
         model_cv = GridSearchCV(model, grid, cv=ss, scoring="balanced_accuracy", error_score=np.nan)
         model_cv.fit(fMt, yst)
     _ = joblib.dump(model_cv.best_estimator_, fl, compress=3)

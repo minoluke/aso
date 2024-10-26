@@ -47,7 +47,7 @@ class ObservationData(object):
             t1 = datetime(2010,1,2)
             self.update(t0,t1)
         # check date of latest data in file
-        self.df = pd.read_csv(self.file, index_col=0, parse_dates=[0,], infer_datetime_format=True)
+        self.df = pd.read_csv(self.file, index_col=0, parse_dates=[0,])
         self.ti = self.df.index[0]
         self.tf = self.df.index[-1]
 

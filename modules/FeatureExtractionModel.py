@@ -3,7 +3,6 @@ from .BaseModel import BaseModel
 import os
 import numpy as np
 import pandas as pd
-import logging, warnings
 from tsfresh import extract_features
 from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 from tsfresh.utilities.dataframe_functions import impute
@@ -93,7 +92,7 @@ class FeatureExtractionModel(BaseModel):
 
         # check if feature matrix already exists and what it contains
         if os.path.isfile(self.featfile):
-            t = pd.to_datetime(pd.read_csv(self.featfile, index_col=0, parse_dates=['time'], usecols=['time'], infer_datetime_format=True).index.values)
+            t = pd.to_datetime(pd.read_csv(self.featfile, index_col=0, parse_dates=['time'], usecols=['time']).index.values)
             ti0,tf0 = t[0],t[-1]
             Nw0 = len(t)
             hds = pd.read_csv(self.featfile, index_col=0, nrows=1)
@@ -115,7 +114,7 @@ class FeatureExtractionModel(BaseModel):
 
             # option 3, expand both
             if any([more_cols, pad_left > 0, pad_right > 0]) and self.update_feature_matrix:
-                fm = pd.read_csv(self.featfile, index_col=0, parse_dates=['time'], infer_datetime_format=True)
+                fm = pd.read_csv(self.featfile, index_col=0, parse_dates=['time'])
                 if more_cols:
                     # expand columns now
                     df0, wd = self._construct_windows(Nw0, ti0)
@@ -146,7 +145,7 @@ class FeatureExtractionModel(BaseModel):
                 fm = fm.iloc[i0:i1]    
             else:
                 # read relevant part of matrix
-                fm = pd.read_csv(self.featfile, index_col=0, parse_dates=['time'], infer_datetime_format=True, header=0, skiprows=range(1,i0+1), nrows=i1-i0)
+                fm = pd.read_csv(self.featfile, index_col=0, parse_dates=['time'], header=0, skiprows=range(1,i0+1), nrows=i1-i0)
         else:
             # create feature matrix from scratch   
             df, wd = self._construct_windows(Nw, ti)

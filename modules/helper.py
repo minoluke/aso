@@ -1,6 +1,9 @@
 from datetime import datetime
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.tree import DecisionTreeClassifier
+import xgboost as xgb
+import lightgbm as lgb
+from catboost import CatBoostClassifier
 
 try:
     import cupy as cp
@@ -72,7 +75,51 @@ def get_classifier(classifier):
                 'criterion': ['gini', 'entropy'],
                 'max_features': ['auto', 'sqrt', 'log2', None]
             }
+    elif classifier.lower() == 'xgboost':
+        model = xgb.XGBClassifier(
+            tree_method='gpu_hist',   
+            gpu_id=0,                  
+            objective='binary:logistic',
+            use_label_encoder=False,
+            eval_metric='logloss'
+        )
+        param_grid = {
+            'n_estimators': [100, 200],
+            'max_depth': [3, 5, 7],
+            'learning_rate': [0.01, 0.1, 0.2]
+        }
+        return model, param_grid
+
+    elif classifier.lower() == 'lightgbm':
+        model = lgb.LGBMClassifier(
+            device='gpu',             
+            objective='binary',
+            boosting_type='gbdt'
+        )
+        param_grid = {
+            'n_estimators': [100, 200],
+            'max_depth': [3, 5, 7],
+            'learning_rate': [0.01, 0.1, 0.2],
+            'num_leaves': [31, 63, 127]
+        }
+        return model, param_grid
+
+    elif classifier.lower() == 'catboost':
+        model = CatBoostClassifier(
+            task_type='GPU',         
+            devices='0',              
+            verbose=0
+        )
+        param_grid = {
+            'iterations': [100, 200],
+            'depth': [3, 5, 7],
+            'learning_rate': [0.01, 0.1, 0.2],
+            'l2_leaf_reg': [1, 3, 5]
+        }
+        return model, param_grid
     else:
         raise ValueError(f"classifier '{classifier}' not recognised")
     
     return model, grid
+
+
