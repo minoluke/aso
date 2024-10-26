@@ -189,6 +189,9 @@ class TrainModel(FeatureExtractionModel):
             Classifier options:
             -------------------
             DT - Decision Tree
+            XGBoost - XGBoost
+            LightGBM - LightGBM
+            CatBoost - CatBoost
         """
         self.classifier = classifier
         self.n_jobs = n_jobs

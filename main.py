@@ -37,6 +37,7 @@ start_period = '2010-01-01'
 end_period = '2022-12-31'
 
 overlap = 0.85
+classifier = 'XGBoost'
 
 def one_train_test(od,lb,lf,cv):
     te = observation_m.tes[int(cv)]
@@ -46,10 +47,10 @@ def one_train_test(od,lb,lf,cv):
         raise ValueError("Invalid value for 'od'")
     
     train_m = TrainModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od)
-    train_m.train(cv=cv, ti=start_period, tf=end_period, retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs) 
+    train_m.train(cv=cv, ti=start_period, tf=end_period, retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs, classifier=classifier) 
 
     test_m = TestModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od)
-    test_m.test(cv=cv, ti=start_period, tf=end_period, recalculate=True, n_jobs=n_jobs)  
+    test_m.test(cv=cv, ti=start_period, tf=end_period, recalculate=True, n_jobs=n_jobs, classifier=classifier)  
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')

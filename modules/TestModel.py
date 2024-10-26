@@ -9,37 +9,18 @@ import pandas as pd
 import numpy as np
 from .helper import get_classifier, datetimeify
 
+all_classifiers = ['DT','XGBoost','LightGBM','CatBoost']
+
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
 class TestModel(FeatureExtractionModel):
     """
     Methods:
-        _detect_model
-            Checks whether and what models have already been run.
         forecast
             Use classifier models to forecast eruption likelihood.
     """
-    def _detect_model(self):
-        """ Checks whether and what models have already been run.
-        """
-        fls = glob(self._use_model+os.sep+'*.fts')
-        if len(fls) == 0:
-            raise ValueError("no feature files in '{:s}'".format(self._use_model))
-
-        inds = [int(float(fl.split(os.sep)[-1].split('.')[0])) for fl in fls if ('all.fts' not in fl)]
-        if max(inds) != (len(inds) - 1):
-            raise ValueError("feature file numbering in '{:s}' appears not consecutive".format(self._use_model))
-        
-        self.classifier = []
-        for classifier in ["DT"]:
-            model = get_classifier(classifier)[0]
-            pref = type(model).__name__
-            if all([os.path.isfile(self._use_model+os.sep+'{:s}_{:04d}.pkl'.format(pref,ind)) for ind in inds]):
-                self.classifier = classifier
-                return
-        raise ValueError("did not recognise models in '{:s}'".format(self._use_model))
     
-    def test(self,cv=0, ti=None, tf=None, recalculate=False, use_model=None, n_jobs=6):
+    def test(self,cv=0, ti=None, tf=None, recalculate=False, n_jobs=6, classifier='DT'):
         """ Use classifier models to forecast eruption likelihood.
 
             Parameters:
@@ -51,8 +32,6 @@ class TestModel(FeatureExtractionModel):
             recalculate : bool
                 Flag indicating forecast should be recalculated, otherwise forecast will be
                 loaded from previous save file (if it exists).
-            use_model : None or str
-                Optionally pass path to pre-trained model directory in 'models'.
             n_jobs : int
                 Number of cores to use.
 
@@ -61,7 +40,7 @@ class TestModel(FeatureExtractionModel):
             consensus : pd.DataFrame
                 The model consensus, indexed by window date.
         """
-        self._use_model = use_model
+        self.classifier = classifier
         makedir(self.preddir)
 
         # 
@@ -74,11 +53,7 @@ class TestModel(FeatureExtractionModel):
 
         loadFeatureMatrix = True
 
-        model_path = self.modeldir + os.sep
-        if use_model is not None:
-            self._detect_model()
-            model_path = self._use_model+os.sep
-            
+        model_path = self.modeldir + os.sep            
         model,classifier = get_classifier(self.classifier)
 
         # logic to determine which models need to be run and which to be read from disk

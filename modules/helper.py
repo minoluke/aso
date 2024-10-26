@@ -1,3 +1,4 @@
+import ctypes
 from datetime import datetime
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.tree import DecisionTreeClassifier
@@ -5,12 +6,14 @@ import xgboost as xgb
 import lightgbm as lgb
 from catboost import CatBoostClassifier
 
-try:
-    import cupy as cp
-    from cuml import DecisionTreeClassifier as cuml_DecisionTreeClassifier
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0 
-except ImportError:
-    GPU_AVAILABLE = False
+def is_gpu_available():
+    try:
+        libcuda = ctypes.CDLL('libcuda.so')
+        count = ctypes.c_int()
+        result = libcuda.cuDeviceGetCount(ctypes.byref(count))
+        return count.value > 0
+    except OSError:
+        return False
 
 def datetimeify(t):
     """ Return datetime object corresponding to input string.
@@ -57,25 +60,22 @@ def get_classifier(classifier):
         Classifier options:
         -------------------
         DT - Decision Tree
+        XGBoost - XGBoost
+        LightGBM - LightGBM
+        CatBoost - CatBoost
     """
+    GPU_AVAILABLE = is_gpu_available()
+    if not GPU_AVAILABLE and classifier.lower() in ['XGBboost', 'LightGBM', 'CatBoost']:
+        raise ValueError(f"'{classifier}' requires GPU, but no GPU is available.")
 
     if classifier == "DT":  # Decision Tree
-        if GPU_AVAILABLE:
-            print("Using GPU Decision Tree")
-            model = cuml_DecisionTreeClassifier(class_weight='balanced')
-            grid = {
-                'max_depth': [3, 5, 7],
-                'criterion': ['gini'],  # cuMLは'gini'のみサポート
-                'max_features': ['auto', 'sqrt', 'log2']
-            }
-        else:
-            model = DecisionTreeClassifier(class_weight='balanced')
-            grid = {
-                'max_depth': [3, 5, 7],
-                'criterion': ['gini', 'entropy'],
-                'max_features': ['auto', 'sqrt', 'log2', None]
-            }
-    elif classifier.lower() == 'xgboost':
+        model = DecisionTreeClassifier(class_weight='balanced')
+        grid = {
+            'max_depth': [3, 5, 7],
+            'criterion': ['gini', 'entropy'],
+            'max_features': ['auto', 'sqrt', 'log2', None]
+        }
+    elif classifier.lower() == 'XGBoost':
         model = xgb.XGBClassifier(
             tree_method='gpu_hist',   
             gpu_id=0,                  
@@ -90,7 +90,7 @@ def get_classifier(classifier):
         }
         return model, param_grid
 
-    elif classifier.lower() == 'lightgbm':
+    elif classifier.lower() == 'LightGBM':
         model = lgb.LGBMClassifier(
             device='gpu',             
             objective='binary',
@@ -104,7 +104,7 @@ def get_classifier(classifier):
         }
         return model, param_grid
 
-    elif classifier.lower() == 'catboost':
+    elif classifier.lower() == 'CatBoost':
         model = CatBoostClassifier(
             task_type='GPU',         
             devices='0',              
