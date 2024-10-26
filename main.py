@@ -41,16 +41,22 @@ classifier = 'DT'
 #all_classifiers = ['DT','XGBoost','LightGBM','CatBoost']
 
 def one_train_test(od,lb,lf,cv):
+    GPU_AVAILABLE = is_gpu_available()
+    if GPU_AVAILABLE:
+        print("GPU available")
+    else:
+        print("GPU not available")
+
     te = observation_m.tes[int(cv)]
 
     data_streams = data_streams_dict.get(od)
     if data_streams is None:
         raise ValueError("Invalid value for 'od'")
     
-    train_m = TrainModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od)
+    train_m = TrainModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od, cv=cv)
     train_m.train(cv=cv, ti=start_period, tf=end_period, retrain=True, exclude_dates=[[te-6*month,te+6*month],], n_jobs=n_jobs, classifier=classifier) 
 
-    test_m = TestModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od)
+    test_m = TestModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od, cv=cv)
     test_m.test(cv=cv, ti=start_period, tf=end_period, recalculate=True, n_jobs=n_jobs, classifier=classifier)  
 
 if __name__ == "__main__":

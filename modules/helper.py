@@ -3,6 +3,38 @@ from datetime import datetime
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.tree import DecisionTreeClassifier
 
+import xgboost as xgb
+import lightgbm as lgb
+from catboost import CatBoostClassifier
+
+import re
+import pandas as pd
+
+def sanitize_feature_names(feature_names):
+    """
+    特徴名または特徴名リストをクレンジングする関数。
+    入力が単一の文字列の場合はそのままクレンジングし、
+    リストまたは pd.Index の場合は各要素にクレンジングを適用。
+    """
+    def sanitize(name):
+        # スペースを削除
+        name = name.replace(' ', '')
+        # 特殊文字をアンダースコアに置換
+        return re.sub(r'[^a-zA-Z0-9_]', '_', name)
+
+    # pd.Index オブジェクトをリストに変換
+    if isinstance(feature_names, pd.Index):
+        feature_names = feature_names.tolist()
+
+    # 入力がリストの場合は各要素にクレンジングを適用
+    if isinstance(feature_names, list):
+        return [sanitize(name) for name in feature_names]
+    # 入力が単一の文字列の場合はそのままクレンジング
+    elif isinstance(feature_names, str):
+        return sanitize(feature_names)
+    else:
+        raise ValueError("Input should be a string, list of strings, or pd.Index.")
+
 def is_gpu_available():
     try:
         libcuda = ctypes.CDLL('libcuda.so')
@@ -62,13 +94,6 @@ def get_classifier(classifier):
         CatBoost - CatBoost
     """
     GPU_AVAILABLE = is_gpu_available()
-    if not GPU_AVAILABLE and classifier.lower() in ['XGBboost', 'LightGBM', 'CatBoost']:
-        raise ValueError(f"'{classifier}' requires GPU, but no GPU is available.")
-    
-    if is_gpu_available():
-        import xgboost as xgb
-        import lightgbm as lgb
-        from catboost import CatBoostClassifier
 
     if classifier == "DT":  # Decision Tree
         model = DecisionTreeClassifier(class_weight='balanced')
@@ -77,14 +102,22 @@ def get_classifier(classifier):
             'criterion': ['gini', 'entropy'],
             'max_features': ['auto', 'sqrt', 'log2', None]
         }
-    elif classifier.lower() == 'XGBoost':
-        model = xgb.XGBClassifier(
-            tree_method='gpu_hist',   
-            gpu_id=0,                  
-            objective='binary:logistic',
-            use_label_encoder=False,
-            eval_metric='logloss'
-        )
+    elif classifier == 'XGBoost': 
+        if GPU_AVAILABLE:
+            model = xgb.XGBClassifier(
+                tree_method='gpu_hist', 
+                gpu_id=0,                
+                objective='binary:logistic',
+                use_label_encoder=False,
+                eval_metric='logloss'
+            )
+        else:
+            model = xgb.XGBClassifier(
+                tree_method='hist',     
+                objective='binary:logistic',
+                use_label_encoder=False,
+                eval_metric='logloss'
+            )
         param_grid = {
             'n_estimators': [100, 200],
             'max_depth': [3, 5, 7],
@@ -92,12 +125,21 @@ def get_classifier(classifier):
         }
         return model, param_grid
 
-    elif classifier.lower() == 'LightGBM':
-        model = lgb.LGBMClassifier(
-            device='gpu',             
-            objective='binary',
-            boosting_type='gbdt'
-        )
+    elif classifier == 'LightGBM':
+        if GPU_AVAILABLE:
+            model = lgb.LGBMClassifier(
+                device='gpu',
+                objective='binary',
+                boosting_type='gbdt',
+                verbose=-1 
+            )
+        else:
+            model = lgb.LGBMClassifier(
+                objective='binary',
+                boosting_type='gbdt',
+                verbose=-1 
+            )
+
         param_grid = {
             'n_estimators': [100, 200],
             'max_depth': [3, 5, 7],
@@ -106,12 +148,19 @@ def get_classifier(classifier):
         }
         return model, param_grid
 
-    elif classifier.lower() == 'CatBoost':
-        model = CatBoostClassifier(
-            task_type='GPU',         
-            devices='0',              
-            verbose=0
-        )
+    elif classifier == 'CatBoost':
+        if GPU_AVAILABLE:
+            model = CatBoostClassifier(
+                task_type='GPU',
+                devices='0',
+                verbose=0
+            )
+        else:
+            model = CatBoostClassifier(
+                task_type='CPU',
+                verbose=0
+            )
+
         param_grid = {
             'iterations': [100, 200],
             'depth': [3, 5, 7],

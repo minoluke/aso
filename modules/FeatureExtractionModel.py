@@ -7,6 +7,8 @@ from tsfresh import extract_features
 from tsfresh.feature_extraction.settings import ComprehensiveFCParameters
 from tsfresh.utilities.dataframe_functions import impute
 
+from .helper import sanitize_feature_names
+
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
 class FeatureExtractionModel(BaseModel):
@@ -152,7 +154,8 @@ class FeatureExtractionModel(BaseModel):
             fm = extract_features(df, column_id='id', n_jobs=self.n_jobs, default_fc_parameters=cfp, impute_function=impute)
             fm.index = pd.Series(wd)
             fm.to_csv(self.featfile, index=True, index_label='time')
-            
+
+        fm.columns = sanitize_feature_names(fm.columns)  
         ys = pd.DataFrame(self._get_label(fm.index.values), columns=['label'], index=fm.index)
         return fm, ys
     

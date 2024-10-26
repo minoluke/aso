@@ -9,8 +9,6 @@ import pandas as pd
 import numpy as np
 from .helper import get_classifier, datetimeify
 
-all_classifiers = ['DT','XGBoost','LightGBM','CatBoost']
-
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
 class TestModel(FeatureExtractionModel):

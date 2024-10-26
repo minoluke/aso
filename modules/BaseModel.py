@@ -72,7 +72,7 @@ class BaseModel(object):
         preddir : str
             Directory to save forecast model predictions.
     """
-    def __init__(self, look_backward, overlap, look_forward,data_streams, ti=None, tf=None, root=None, od=None):
+    def __init__(self, look_backward, overlap, look_forward,data_streams, ti=None, tf=None, root=None, od=None, cv=None):
         self.look_backward = look_backward
         self.overlap = overlap
         self.look_forward = look_forward
@@ -93,7 +93,8 @@ class BaseModel(object):
         self.dt = timedelta(days=1.)
         self.dto = (1.-self.overlap)*self.dtw
         self.iw = int(self.look_backward)   
-        self.od = od        
+        self.od = od    
+        self.cv = cv    
         self.io = int(self.overlap*self.iw)      
         if self.io == self.iw: self.io -= 1
 
@@ -116,9 +117,9 @@ class BaseModel(object):
             self.root = root
         self.rootdir = os.sep.join(getfile(currentframe()).split(os.sep)[:-2])
         self.plotdir = r'{:s}/save/figures/plots/{:s}'.format(self.rootdir, self.root)
-        self.modeldir = r'{:s}/save/rawdata/models/{:s}'.format(self.rootdir, self.root)
+        self.modeldir = r'{:s}/save/rawdata/models/{:s}cv_{:s}'.format(self.rootdir, self.cv, self.root)
         self.featdir = r'{:s}/save/rawdata/features'.format(self.rootdir, self.root)
         self.featfile = r'{:s}/{:s}_features.csv'.format(self.featdir, self.root)
-        self.preddir = r'{:s}/save/rawdata/pred_each/{:s}'.format(self.rootdir, self.root)
+        self.preddir = r'{:s}/save/rawdata/pred_each/{:s}cv_{:s}'.format(self.rootdir, self.cv, self.root)
         self.consensusdir = r'{:s}/save/rawdata/consensus/'.format(self.rootdir)
     

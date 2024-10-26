@@ -16,8 +16,8 @@ from imblearn.under_sampling import RandomUnderSampler
 from tsfresh.transformers import FeatureSelector
 from sklearn.model_selection import GridSearchCV, ShuffleSplit
 
-
 makedir = lambda name: os.makedirs(name, exist_ok=True)
+
 
 class TrainModel(FeatureExtractionModel):
     """
@@ -272,6 +272,7 @@ def train_one_model(fM, ys, Nfts, modeldir, classifier, retrain, random_seed, ra
     select.fit_transform(fMt,yst)
     fts = select.features[:Nfts]
     pvs = select.p_values[:Nfts]
+
     fMt = fMt[fts]
     with open('{:s}/{:04d}.fts'.format(modeldir, random_state),'w') as fp:
         for f,pv in zip(fts,pvs): 
