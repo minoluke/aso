@@ -1,7 +1,7 @@
 name: aso_12
 channels:
-  - defaults
   - conda-forge
+  - defaults
 dependencies:
   - python=3.12
   - tsfresh=0.20.3

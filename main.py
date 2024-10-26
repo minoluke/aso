@@ -37,7 +37,8 @@ start_period = '2010-01-01'
 end_period = '2022-12-31'
 
 overlap = 0.85
-classifier = 'XGBoost'
+classifier = 'DT'
+#all_classifiers = ['DT','XGBoost','LightGBM','CatBoost']
 
 def one_train_test(od,lb,lf,cv):
     te = observation_m.tes[int(cv)]

@@ -15,6 +15,6 @@ dependencies:
   - statsmodels=0.14.2
   - pip
   - pip:
-    - xgboost
-    - lightgbm
-    - catboost
+    - xgboost==2.1.2
+    - lightgbm==4.5.0
+    - catboost==1.2.7

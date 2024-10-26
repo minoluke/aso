@@ -2,9 +2,6 @@ import ctypes
 from datetime import datetime
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.tree import DecisionTreeClassifier
-import xgboost as xgb
-import lightgbm as lgb
-from catboost import CatBoostClassifier
 
 def is_gpu_available():
     try:
@@ -67,6 +64,11 @@ def get_classifier(classifier):
     GPU_AVAILABLE = is_gpu_available()
     if not GPU_AVAILABLE and classifier.lower() in ['XGBboost', 'LightGBM', 'CatBoost']:
         raise ValueError(f"'{classifier}' requires GPU, but no GPU is available.")
+    
+    if is_gpu_available():
+        import xgboost as xgb
+        import lightgbm as lgb
+        from catboost import CatBoostClassifier
 
     if classifier == "DT":  # Decision Tree
         model = DecisionTreeClassifier(class_weight='balanced')
