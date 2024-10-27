@@ -3,3 +3,4 @@ __pycache__/
 .vscode/
 save/
 .DS_Store
+catboost_info/
