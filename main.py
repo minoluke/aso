@@ -3,6 +3,7 @@ import os, sys, argparse, warnings, logging
 from datetime import timedelta
 import numpy as np
 import itertools
+import time
 
 sys.path.insert(0, os.path.abspath('..'))
 from modules import *
@@ -40,6 +41,8 @@ classifier = 'DT'
 #all_classifiers = ['DT','XGBoost','LightGBM','CatBoost']
 
 def one_train_test(od,lb,lf,cv):
+    start_time = time.time()
+
     GPU_AVAILABLE = is_gpu_available()
     if GPU_AVAILABLE:
         print("GPU available")
@@ -57,6 +60,9 @@ def one_train_test(od,lb,lf,cv):
 
     test_m = TestModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od, cv=cv)
     test_m.test(cv=cv, ti=start_period, tf=end_period, recalculate=True, n_jobs=n_jobs, classifier=classifier)  
+    
+    end_time = time.time()
+    print(f"Time elapsed: {end_time - start_time} seconds")
 
 def overlap_train_test(od, min_window, delta_window, grid_number):
     """
