@@ -60,7 +60,7 @@ def one_train_test(od,lb,lf,cv):
 
     test_m = TestModel(ti=start_period, tf=end_period, look_backward=float(lb), overlap=overlap, look_forward=float(lf), data_streams=data_streams, od=od, cv=cv)
     test_m.test(cv=cv, ti=start_period, tf=end_period, recalculate=True, n_jobs=n_jobs, classifier=classifier)  
-    
+
     end_time = time.time()
     print(f"Time elapsed: {end_time - start_time} seconds")
 
@@ -100,11 +100,15 @@ if __name__ == "__main__":
     one_train_test(args.od,args.lb, args.lf,args.cv)
     """
     # グリッド探索パラメータの設定
-    observation_data = 'tilt'  # 使用する観測データ
+    observation_data = 'yudamari'  # 使用する観測データ
     min_window = 30              # 最小のウィンドウサイズ
-    delta_window = 20             # ウィンドウサイズの増分
-    grid_number = 3              # グリッドの分割数
+    delta_window = 15             # ウィンドウサイズの増分
+    grid_number = 11              # グリッドの分割数
 
     # グリッド探索の実行
     overlap_train_test(observation_data, min_window, delta_window, grid_number)
+
+    #observation_data = 'kakou'
+
+    #overlap_train_test(observation_data, min_window, delta_window, grid_number)
     
