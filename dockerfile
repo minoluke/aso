@@ -4,11 +4,6 @@ FROM continuumio/miniconda3
 # 作業ディレクトリを設定
 WORKDIR /workspace
 
-# modules と data フォルダを Docker コンテナにコピー
-COPY modules /workspace/modules
-COPY data /workspace/data
-COPY main.py /workspace/main.py
-
 # conda-forgeチャンネルの使用を設定
 RUN conda config --add channels conda-forge && \
     conda config --set channel_priority strict
@@ -29,5 +24,8 @@ RUN conda install -y python=3.12 \
     catboost \
     && conda clean -afy
 
-# エントリポイントを設定
-CMD ["python"]
+    # modules と data フォルダを Docker コンテナにコピー
+COPY modules /workspace/modules
+COPY data /workspace/data
+COPY main.py /workspace/main.py
+COPY plotter.py /workspace/plotter.py

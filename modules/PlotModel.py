@@ -285,6 +285,3 @@ class PlotModel(FeatureExtractionModel):
 
 
         #plt.show()
-
-    def plot_model_correlation_matrix(self):
-        
