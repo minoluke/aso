@@ -109,8 +109,8 @@ class TestModel(FeatureExtractionModel):
         ob_folder = os.path.join(self.consensusdir, self.od)
         wl_lfl_folder = os.path.join(ob_folder, f"{self.look_backward}_{self.look_forward}")
         makedir(wl_lfl_folder)
-        save_path = os.path.join(wl_lfl_folder, f"{cv}_consensus.csv")
-        forecast.to_csv(save_path, index=True, index_label='time')
+        consensus_file = os.path.join(wl_lfl_folder, f"{cv}_consensus.csv")
+        forecast.to_csv(consensus_file, index=True, index_label='time')
         
         # memory management
         if len(run_predictions)>0:

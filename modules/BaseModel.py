@@ -94,7 +94,7 @@ class BaseModel(object):
         self.dto = (1.-self.overlap)*self.dtw
         self.iw = int(self.look_backward)   
         self.od = od    
-        self.cv = cv    
+        self.cv = str(cv)    
         self.io = int(self.overlap*self.iw)      
         if self.io == self.iw: self.io -= 1
 
@@ -116,7 +116,7 @@ class BaseModel(object):
         else:
             self.root = root
         self.rootdir = os.sep.join(getfile(currentframe()).split(os.sep)[:-2])
-        self.plotdir = r'{:s}/save/figures/plots/{:s}'.format(self.rootdir, self.root)
+        self.plotdir = r'{:s}/save/figures/{:s}'.format(self.rootdir, self.root)
         self.modeldir = r'{:s}/save/rawdata/models/{:s}cv_{:s}'.format(self.rootdir, self.cv, self.root)
         self.featdir = r'{:s}/save/rawdata/features'.format(self.rootdir, self.root)
         self.featfile = r'{:s}/{:s}_features.csv'.format(self.featdir, self.root)
