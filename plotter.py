@@ -33,3 +33,4 @@ min_window = 30              # 最小のウィンドウサイズ
 delta_window = 15             # ウィンドウサイズの増分
 grid_number = 11    
 plotmodel.plot_AUC_colormap(min_window, delta_window, grid_number)
+
