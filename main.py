@@ -79,7 +79,7 @@ def overlap_train_test(od, min_window, delta_window, grid_number):
     look_forward_values = [min_window + delta_window * i for i in range(grid_number)]
     
     # cv の範囲を設定（0から4まで）
-    cv_values = range(5)
+    cv_values = range(observation_m.eruption_number)
     
     # 全ての組み合わせを生成
     for lb_val, lf_val, cv_val in itertools.product(look_backward_values, look_forward_values, cv_values):

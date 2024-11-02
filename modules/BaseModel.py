@@ -80,6 +80,7 @@ class BaseModel(object):
         self.data = ObservationData()
         if any([d not in self.data.df.columns for d in self.data_streams]):
             raise ValueError("data restricted to any of {}".format(self.data.df.columns))
+        self.eruption_number = self.data.eruption_number
         if ti is None: ti = self.data.ti
         if tf is None: tf = self.data.tf
         self.ti_model = datetimeify(ti)
@@ -122,4 +123,5 @@ class BaseModel(object):
         self.featfile = r'{:s}/{:s}_features.csv'.format(self.featdir, self.root)
         self.preddir = r'{:s}/save/rawdata/pred_each/{:s}cv_{:s}'.format(self.rootdir, self.cv, self.root)
         self.consensusdir = r'{:s}/save/rawdata/consensus/'.format(self.rootdir)
+        self.aucmapdir = r'{:s}/save/rawdata/aucmap/{:s}'.format(self.rootdir,self.od)
     

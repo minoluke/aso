@@ -40,6 +40,7 @@ class ObservationData(object):
         # get eruptions
         with open(os.sep.join(getfile(currentframe()).split(os.sep)[:-2]+['data','eruptive_periods.txt']),'r') as fp:
             self.tes = [datetimeify(ln.rstrip()) for ln in fp.readlines()]
+        self.eruption_number = len(self.tes)
         # check if data file exists
         self.exists = os.path.isfile(self.file)
         if not self.exists:
