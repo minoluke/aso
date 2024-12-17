@@ -5,21 +5,27 @@ import numpy as np
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 from scipy.stats import mannwhitneyu
+from scipy.ndimage import gaussian_filter, label
+from skimage.measure import regionprops
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import  MinMaxScaler
+import json
 
 makedir = lambda name: os.makedirs(name, exist_ok=True)
 
 class PlotModel(FeatureExtractionModel):
     """
     Description:
-        Class for plotting model results and features
+        Class for plotting model results and features.
+        This class inherits from FeatureExtractionModel.
+        (FeatureExtractionModel also inherits from BaseModel)
 
     Attributes:
         eruptive_periods_path : str
             Path to eruptive periods file
         data_path : str
             Path to observation data file
+
 
     Methods:
         _load_eruptive_periods
@@ -40,6 +46,18 @@ class PlotModel(FeatureExtractionModel):
             Get alarm periods
         _smooth_data    
             Smooth data
+        _scale_data
+            Scale data
+        calculate_metrics
+            Calculate metrics
+        _filter_post_eruption
+            Filter post eruption
+        plot_time_series_with_alarm
+            Plot time series with alarm
+        _calculate_pearson_correlation
+            Calculate Pearson correlation
+        _find_consensus_paths
+            Find consensus paths
         
     """
 
@@ -52,7 +70,11 @@ class PlotModel(FeatureExtractionModel):
         self.timeseries_dir = r'{:s}/save/figures/timeseries/{:s}'.format(self.rootdir,timestamp)
         self.feature_histogram_dir = r'{:s}/save/figures/feature_histogram/{:s}'.format(self.rootdir, self.od)
         self.learning_curve_dir = r'{:s}/save/figures/learning_curve'.format(self.rootdir)
-        self.auc_dir = r'{:s}/save/figures/AUC_colormap'.format(self.rootdir)
+        self.auc_map_dir = r'{:s}/save/figures/AUC_matrix'.format(self.rootdir)
+        self.auc_data_dir = r'{:s}/save/rawdata/AUC_colormap'.format(self.rootdir)
+        self.pearson_correlation_matrix_dir = r'{:s}/save/figures/pearson_correlation_matrix'.format(self.rootdir)
+        self.optimized_time_scale_figure_dir = r'{:s}/save/figures/optimized_time_scale'.format(self.rootdir)
+        self.optimized_time_scale_data_dir = r'{:s}/save/rawdata/optimized_time_scale'.format(self.rootdir)
            
     def _load_eruptive_periods(self, file_path=None):
         if file_path is None:
@@ -158,15 +180,26 @@ class PlotModel(FeatureExtractionModel):
         train_df = df[~df['is_test_period']]
         return test_df, train_df
 
-    def _preprocess_data(self, file_path, eruptive_periods, lookforward_days, start_test, end_test, exclusion_index):
+    def _preprocess_data(self, file_path, eruptive_periods, lookforward_days, start_test, end_test, exclusion_index, smoothed=False, smoothed_window_size=1):
         df = pd.read_csv(file_path)
         df['time'] = pd.to_datetime(df['time'])
-        df['eruption_within_days'] = df['time'].apply(lambda x: self._eruption_within_days(x, eruptive_periods, lookforward_days))
+        if smoothed:
+            df = self._smooth_data(df, 1)
+            #smoothed列をconsensus列に置き換え
+            df['consensus'] = df['smoothed']
+            df['eruption_within_days'] = df['time'].apply(lambda x: self._eruption_within_days(x, eruptive_periods, smoothed_window_size))
+        else:
+            #df = self._smooth_data(df, 1)
+            #smoothed列をconsensus列に置き換え
+            #df['consensus'] = df['smoothed']
+            df['eruption_within_days'] = df['time'].apply(lambda x: self._eruption_within_days(x, eruptive_periods, lookforward_days))
+
         test_df, train_df = self._split_train_test(df, eruptive_periods, start_test, end_test, exclusion_index)
         return test_df, train_df
 
-    def plot_learning_curve(self,max_models=10, metrics='AUC'):
+    def plot_learning_curve(self,max_models=10, metrics='AUC', observation_data_name=None):
         pred_path = self.preddir
+        observation_data = self.od
         eruptive_periods = self._load_eruptive_periods()
         metric_test_scores = []
         metric_train_scores = []
@@ -209,48 +242,66 @@ class PlotModel(FeatureExtractionModel):
             metric_test_scores.append(metric_test)
             metric_train_scores.append(metric_train)
 
+        if observation_data_name is not None:
+            observation_data = observation_data_name
+        # Plotting AP for test and train data against the number of models
+        
         # Plotting AP for test and train data against the number of models
         plt.figure(figsize=(10, 6))
         plt.plot(model_range, metric_test_scores, label=f'Test Data {metrics}', marker='o')
         plt.plot(model_range, metric_train_scores, label=f'Train Data {metrics}', marker='x')
-        plt.xlabel('Number of Models')
-        plt.ylabel(metrics)
-        plt.title(f'{metrics} for Test and Train Data (Look Forward {lookforward_days} Days, CV={self.cv})')
-        plt.legend()
+
+        # 軸ラベルのフォントサイズを大きく
+        plt.xlabel('Number of Models', fontsize=18)
+        plt.ylabel(metrics, fontsize=18)
+
+        # タイトルのフォントサイズを大きく
+        plt.title(f'AUC trends for {observation_data}', fontsize=20)
+
+        # 目盛りのフォントサイズを大きく
+        plt.tick_params(axis='x', labelsize=14)  # x軸
+        plt.tick_params(axis='y', labelsize=14)  # y軸
+
+        # 凡例のフォントサイズを大きく
+        plt.legend(fontsize=14)
+
+        # グリッドを設定
         plt.grid()
 
-    
         plot_dir = self.learning_curve_dir
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
         plt.savefig(f'{plot_dir}/{self.root}.png')
 
-        #plt.show()
+    def _calculate_auc(self, file_path, eruptive_periods, lookforward_days, exclusion_index, smoothed):
+        exclusion_index = int(self.cv)
+        start_test = eruptive_periods[exclusion_index] - timedelta(days=180) - timedelta(days=lookforward_days)
+        end_test = eruptive_periods[exclusion_index]
+        test_df, train_df = self._preprocess_data(file_path, eruptive_periods, lookforward_days, start_test, end_test, exclusion_index, smoothed)
 
-    def plot_AUC_colormap(self, min_window, delta_window, grid_number):
+        # 真のラベルと予測スコア
+        y_true = test_df['eruption_within_days'].astype(int)
+        y_scores = test_df['consensus']
+        if len(np.unique(y_true)) < 2:
+            print("y_trueには1つのクラスしか存在しないため、AUCの計算は行われません。")
+            return 0.5
+        else:
+            return roc_auc_score(y_true, y_scores)
+            
+    def plot_AUC_colormap(self, min_window, delta_window, grid_number, observation_data_name=None, smoothed=False):
         eruption_number = self.eruption_number
         eruptive_periods = self._load_eruptive_periods()
         observation_data = self.od
-        # AUCを計算する関数
-        def _calculate_auc(file_path, eruptive_periods, lookforward_days, exclusion_index):
-            exclusion_index = int(self.cv)
-            start_test = eruptive_periods[exclusion_index] - timedelta(days=180) - timedelta(days=lookforward_days)
-            end_test = eruptive_periods[exclusion_index]
-            test_df, train_df = self._preprocess_data(file_path, eruptive_periods, lookforward_days, start_test, end_test, exclusion_index)
 
-            # 真のラベルと予測スコア
-            y_true = test_df['eruption_within_days'].astype(int)
-            y_scores = test_df['consensus']
-            if len(np.unique(y_true)) < 2:
-                print("y_trueには1つのクラスしか存在しないため、AUCの計算は行われません。")
-                return 0.5
-            else:
-                return roc_auc_score(y_true, y_scores)
             
         # look_backward と look_forward のグリッドポイントを生成
         look_backward_values = [min_window + delta_window * i for i in range(grid_number)]
         look_forward_values = [min_window + delta_window * i for i in range(grid_number)]
-
+        
+        if self.od == 'tremor10min':
+            look_backward_values = [0.5, 1, 2, 3, 4]
+            look_forward_values = [0.5, 1, 2, 3, 4]
+         
         # 各グリッドポイントでAUCを計算
         full_auc_matrix = np.zeros((grid_number, grid_number))
         exclude_auc_matrix = np.zeros((grid_number, grid_number,eruption_number))
@@ -263,9 +314,9 @@ class PlotModel(FeatureExtractionModel):
                     self.look_forward = lf_val
                     self.cv = cv_val
                     ob_folder = os.path.join(self.consensusdir, self.od)
-                    wl_lfl_folder = os.path.join(ob_folder, f"{lb_val}.0_{lf_val}.0")
+                    wl_lfl_folder = os.path.join(ob_folder, f"{lb_val:.1f}_{lf_val:.1f}")
                     consensus_file = os.path.join(wl_lfl_folder, f"{cv_val}_consensus.csv")
-                    auc_value = _calculate_auc(consensus_file, eruptive_periods, lf_val, cv_val)
+                    auc_value = self._calculate_auc(consensus_file, eruptive_periods, lf_val, cv_val, smoothed=smoothed)
                     full_auc_values += auc_value
                     exclude_auc_values = [exclude_auc_values[k] + auc_value if k != cv_val else exclude_auc_values[k] for k in range(eruption_number)]
                     
@@ -273,7 +324,20 @@ class PlotModel(FeatureExtractionModel):
                 exclude_auc_matrix[i, j,:] = np.array(exclude_auc_values) / (eruption_number - 1)
 
 
-            # カラーマップで表示
+        # AUCのマップをcsvファイルとして保存
+        if smoothed == False:
+            auc_data_dir = r'{:s}/{:s}'.format(self.auc_data_dir, observation_data)
+        else:
+            auc_data_dir = r'{:s}_smoothed/{:s}'.format(self.auc_data_dir, observation_data)
+
+        if not os.path.exists(auc_data_dir):
+            os.makedirs(auc_data_dir)
+        np.savetxt(f'{auc_data_dir}/full_auc_matrix.csv', full_auc_matrix, delimiter=',')
+        for cv_val in range(eruption_number):
+            np.savetxt(f'{auc_data_dir}/exclude_auc_matrix_{cv_val}.csv', exclude_auc_matrix[:,:,cv_val], delimiter=',')
+
+        if observation_data_name is not None:
+            observation_data = observation_data_name
 
         plt.rcParams.update({
             'font.size': 18,         # 全体のフォントサイズ
@@ -291,10 +355,14 @@ class PlotModel(FeatureExtractionModel):
         plt.yticks(ticks=np.arange(len(look_backward_values)), labels=look_backward_values)
         plt.xlabel('Look Forward Length (days)')
         plt.ylabel('Look Backward Length (days)')
-        plt.title(f'Mean AUC for {observation_data}')
+        plt.title(f'{observation_data}')
         plt.gca().invert_yaxis()
 
-        auc_dir = r'{:s}/{:s}'.format(self.auc_dir, observation_data)
+        if smoothed == False:
+            auc_dir = r'{:s}/{:s}'.format(self.auc_map_dir, observation_data)
+        else:
+            auc_dir = r'{:s}_smoothed/{:s}'.format(self.auc_map_dir, observation_data)
+
         if not os.path.exists(auc_dir):
             os.makedirs(auc_dir)
         plt.savefig(f'{auc_dir}/Mean_AUC_{observation_data}.png')
@@ -307,7 +375,7 @@ class PlotModel(FeatureExtractionModel):
             plt.yticks(ticks=np.arange(len(look_backward_values)), labels=look_backward_values)
             plt.xlabel('Look Forward Length (days)')
             plt.ylabel('Look Backward Length (days)')
-            plt.title(f'Mean AUC for {observation_data} (Excluding CV={cv_val})')
+            plt.title(f'{observation_data} (Excluding CV={cv_val})')
             plt.gca().invert_yaxis()
             if not os.path.exists(auc_dir):
                 os.makedirs(auc_dir)
@@ -315,7 +383,7 @@ class PlotModel(FeatureExtractionModel):
 
         #plt.show()
 
-    def _get_alarm_periods(self, model_data, eruptive_periods, start_time, end_time, solo=False, threshold=0.65, m_threshold=3):
+    def _get_alarm_periods(self, model_data, eruptive_periods, start_time, end_time, threshold, m_threshold):
         alarm_periods = []
         is_alarm = False
         last_alert_time = None
@@ -387,12 +455,13 @@ class PlotModel(FeatureExtractionModel):
 
         return alarm_periods, tp, fp, tn, fn
         
-    def _smooth_data(self, df, window_size):
+    def _smooth_data(self, df, window_size, DayData=True):
         # 平滑化処理
         df['smoothed'] = df['consensus'].rolling(window=window_size, min_periods=1).mean()
 
         # 日付ごとに再サンプリングし、欠損値を補間
-        df = df.set_index('time').resample('D').asfreq()  # 'time'列をインデックスにして日単位で再サンプリング
+        if DayData:
+            df = df.set_index('time').resample('D').asfreq()  # 'time'列をインデックスにして日単位で再サンプリング
         df['smoothed'] = df['smoothed'].interpolate(method='linear')  # 欠損値を線形補間
         
         # インデックスをリセットして元の形式に戻す
@@ -405,7 +474,7 @@ class PlotModel(FeatureExtractionModel):
         df[['smoothed']] = scaler.fit_transform(df[['smoothed']])
         return df
 
-    def calculate_metrics(self, tp, fp, tn, fn):
+    def _calculate_metrics(self, tp, fp, tn, fn):
         # Precisionの計算 (分母が0の場合は0にする)
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
 
@@ -430,7 +499,7 @@ class PlotModel(FeatureExtractionModel):
         df = df[(df['time'] >= start_date) & (df['time'] <= (eruption_date + pd.Timedelta(days=1)))]
         return df
 
-    def plot_time_series_with_alarm(self, model_paths, smooth_window_sizes, cv, threshold = 0.65, m_threshold=3):
+    def _plot_time_series_with_alarm(self, model_paths, smooth_window_sizes, cv, threshold, m_threshold):
         model_data = {}
         eruptive_periods = self._load_eruptive_periods()
 
@@ -440,7 +509,10 @@ class PlotModel(FeatureExtractionModel):
             df['time'] = pd.to_datetime(df['time'])
 
             # 平滑化処理
-            df = self._smooth_data(df, window_size)
+            if name == 'tremor10min':
+                df = self._smooth_data(df, window_size, DayData=False)
+            else:           
+                df = self._smooth_data(df, window_size)
 
             df =  self._filter_post_eruption(df, eruptive_periods, cv)
 
@@ -456,7 +528,7 @@ class PlotModel(FeatureExtractionModel):
         # 警報期間の取得
         alarm_periods, tp, fp, tn, fn = self._get_alarm_periods(model_data, eruptive_periods, start_time, end_time, threshold=threshold, m_threshold=m_threshold)
 
-        mcc, precision, recall = self.calculate_metrics(tp, fp, tn, fn)
+        mcc, precision, recall = self._calculate_metrics(tp, fp, tn, fn)
         # プロットの比率を5:1に設定
         plt.figure(figsize=(15, 3))
         
@@ -496,21 +568,65 @@ class PlotModel(FeatureExtractionModel):
 
         #plt.show()
 
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
         timeseries_dir = self.timeseries_dir
         if not os.path.exists(timeseries_dir):
             os.makedirs(timeseries_dir)
         plt.savefig(f'{timeseries_dir}/timeseries_{cv}cv.png')
 
         return tp, fp, tn, fn, mcc, precision, recall
-        
-    
-    def _calculate_pearson_correlation(self, df1, df2):
+  
+    def plot_time_series_with_alarm_all(self, threshold = 0.65, m_threshold=3):
+        basepath = self.consensusdir
+        time_scale_data_dir = self.optimized_time_scale_data_dir
+        time_scale_dic = json.load(open(f'{time_scale_data_dir}/optimized_time_scales.json', 'r'))
+
+        total_tp, total_fp, total_tn, total_fn = 0, 0, 0, 0
+        # 各 n でループ
+        for cv in range(self.eruption_number):
+            model_paths = {
+                obs: f'{basepath}/{obs}/{scale[0]}.0_{scale[1]}.0/{cv}_consensus.csv'
+                for obs, scale in time_scale_dic[str(cv)].items()
+            }
+            smooth_window_sizes = [scale[1] for scale in time_scale_dic[str(cv)].values()]
+
+            tp, fp, tn, fn, mcc, precision, recall = self._plot_time_series_with_alarm(model_paths, smooth_window_sizes, cv, threshold=threshold, m_threshold=m_threshold)
+
+            # 累積計算
+            total_tp += tp
+            total_fp += fp
+            total_tn += tn
+            total_fn += fn
+
+        # 全体の結果を計算
+        total_tn = total_tn - total_tp
+        total_mcc, total_precision, total_recall = self._calculate_metrics(total_tp, total_fp, total_tn, total_fn)
+
+        # 全体の結果を表示
+        print(f"Total TP: {total_tp}, Total FP: {total_fp}, Total TN: {total_tn}, Total FN: {total_fn}")
+        print(f"Total MCC: {total_mcc}, Total Precision: {total_precision}, Total Recall: {total_recall}")
+
+    def _calculate_pearson_correlation(self, df1, df2, cv, eruption_definition_date=10):
         # 2つのデータフレームの時系列データを結合
         merged = pd.merge(df1, df2, on='time', suffixes=('_1', '_2'))
 
-        # 2つのデータフレームの相関係数を計算
-        correlation = merged['consensus_1'].corr(merged['consensus_2'])
+        #正例と負例のヒストグラムを計算(正例とは、噴火のn日前までのconsensusのヒストグラム)
+        # consensusの値によって0.01刻みでヒストグラムを作成
+        eruption_periods = self._load_eruptive_periods()
+        eruption_date = pd.to_datetime(eruption_periods[cv])
+        start_date = eruption_date - pd.DateOffset(days=eruption_definition_date)
+        pos = merged[(merged['time'] >= start_date) & (merged['time'] <= eruption_date)]
+        neg = merged[(merged['time'] < start_date) | (merged['time'] > eruption_date)]
+        pos_1_hist, _ = np.histogram(pos['consensus_1'], bins=np.arange(0, 1.01, 0.01))
+        pos_2_hist, _ = np.histogram(pos['consensus_2'], bins=np.arange(0, 1.01, 0.01))
+        neg_1_hist, _ = np.histogram(neg['consensus_1'], bins=np.arange(0, 1.01, 0.01))
+        neg_2_hist, _ = np.histogram(neg['consensus_2'], bins=np.arange(0, 1.01, 0.01))
+        
+        #差分のヒストグラムを計算
+        D_1 = pos_1_hist / len(pos) - neg_1_hist / len(neg)
+        D_2 = pos_2_hist / len(pos) - neg_2_hist / len(neg)
+
+        # 2つのヒストグラムの相関係数を計算
+        correlation = np.corrcoef(D_1, D_2)[0, 1]
 
         return correlation
     
@@ -521,7 +637,6 @@ class PlotModel(FeatureExtractionModel):
             consensus_paths[name] = f'{self.consensusdir}/{window}/{cv}_consensus.csv'
         return consensus_paths
     
-
     def plot_pearson_correlation_matrix(self, window_params):
         # データの読み込み
         average_correlation_matrix = np.zeros((len(window_params), len(window_params)))
@@ -542,14 +657,14 @@ class PlotModel(FeatureExtractionModel):
 
             # 噴火前の六ヶ月間でデータをフィルタリング
             for name, df in df_dict.items():
-                df_dict[name] = self._filter_post_eruption(df, self._load_eruptive_periods(), cv, months=10)
+                df_dict[name] = self._filter_post_eruption(df, self._load_eruptive_periods(), cv)
             
 
             # データフレームの相関係数を計算
             correlation_matrix = np.zeros((len(df_dict), len(df_dict)))
             for i, (name1, df1) in enumerate(df_dict.items()):
                 for j, (name2, df2) in enumerate(df_dict.items()):
-                    correlation_matrix[i, j] = self._calculate_pearson_correlation(df1, df2)
+                    correlation_matrix[i, j] = self._calculate_pearson_correlation(df1, df2, cv)
             
             abs_correlation_matrix = np.abs(correlation_matrix)
             average_correlation_matrix += abs_correlation_matrix
@@ -575,7 +690,11 @@ class PlotModel(FeatureExtractionModel):
             plt.gca().invert_yaxis()
             plt.xticks(rotation=45)
             plt.tight_layout()
-            plt.show()
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+            if not os.path.exists(self.pearson_correlation_matrix_dir):
+                os.makedirs(self.pearson_correlation_matrix_dir)
+            plt.savefig(f'{self.pearson_correlation_matrix_dir}/{timestamp}_cv{cv}.png')
+            #plt.show()
 
         average_correlation_matrix /= (self.eruption_number-1)
 
@@ -596,8 +715,98 @@ class PlotModel(FeatureExtractionModel):
         plt.gca().invert_yaxis()
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.show()
 
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+        plt.savefig(f'{self.pearson_correlation_matrix_dir}/{timestamp}_average.png')
+        #plt.show()
+
+    def plot_optimized_time_scale(self, observation_names, min_window, delta_window, grid_number, smoothing_sigma=1, persentile=85):
+        look_backward_values = [min_window + delta_window * i for i in range(grid_number)]
+        look_forward_values = [min_window + delta_window * i for i in range(grid_number)]
+        # キーがcv、次のキーが観測データ名、バリュー値が最適な時間スケールの座標を格納する辞書
+        # optimized_time_scalesを、cvをキー、観測データ名をサブキーとして初期化
+        optimized_time_scales = {
+            cv: {observation_name: {} for observation_name in observation_names} 
+            for cv in range(self.eruption_number)
+        }
+
+        for observation_name in observation_names:
+            for cv in range(self.eruption_number):
+                # AUCデータの読み込み
+                auc_data_dir = r'{:s}/{:s}'.format(self.auc_data_dir, observation_name)
+                exclude_auc_matrix = np.loadtxt(f'{auc_data_dir}/exclude_auc_matrix_{cv}.csv', delimiter=',')
+                # look_backward_values、look_forward_valuesに対応するauc_dataを取得
+                exclude_auc_matrix = exclude_auc_matrix[:grid_number, :grid_number]
+                # 最適な時間範囲を見つける
+                optimal_range_coords, max_auc_coords = self._find_optimal_range(exclude_auc_matrix, smoothing_sigma=smoothing_sigma, percentile=persentile)
+                # プロットの作成
+                plt.figure(figsize=(10, 8))
+                plt.imshow(exclude_auc_matrix, cmap='viridis', interpolation='none', aspect='auto', vmin=0.5, vmax=1.0)
+                plt.colorbar(label='Mean AUC')
+                plt.xticks(ticks=np.arange(len(look_forward_values)), labels=look_forward_values)
+                plt.yticks(ticks=np.arange(len(look_backward_values)), labels=look_backward_values)
+                plt.xlabel('Look Forward Length (days)')
+                plt.ylabel('Look Backward Length (days)')
+                plt.title(f'Optimal range for {observation_name} (Cross-validation: {cv})')
+                plt.gca().invert_yaxis()
+                # 最適な範囲のプロット
+                if optimal_range_coords.size > 0:  # 最適範囲が存在する場合のみ描画
+                    optimal_rows, optimal_cols = zip(*optimal_range_coords)  # 座標を行と列に分解
+                    plt.scatter(optimal_cols, optimal_rows, color='red', s=100, label='Optimal Range')
+                    plt.scatter(max_auc_coords[1], max_auc_coords[0], color='blue', s=150, marker='x', label='optimal point')
+
+                # 凡例を追加
+                plt.legend()
+                #plt.show()
+                # 時間スケールの最適化結果を格納
+                optimized_time_scales[cv][observation_name] = [look_backward_values[max_auc_coords[0]], look_forward_values[max_auc_coords[1]]]
+                # プロットの保存
+                plot_dir = self.optimized_time_scale_figure_dir
+                if not os.path.exists(plot_dir):
+                    os.makedirs(plot_dir)
+                plt.savefig(f'{plot_dir}/Optimal_Range_{observation_name}_cv{cv}.png')
+                plt.close()
+
+        print(optimized_time_scales)
+        # 最適な時間スケールをjsonで保存
+        optimized_time_scale_dir = self.optimized_time_scale_data_dir
+        if not os.path.exists(optimized_time_scale_dir):
+            os.makedirs(optimized_time_scale_dir)
+        with open(f'{optimized_time_scale_dir}/optimized_time_scales.json', 'w') as f:
+            json.dump(optimized_time_scales, f, indent=4)
                 
-        
+    def _find_optimal_range(self, auc_data, smoothing_sigma=1, percentile=85):
+        """
+        与えられたCSVデータに対して、スムージング、上位領域の抽出、最大の閉じた領域を特定します。
+
+        Parameters:
+            csv_data (str): CSV形式の文字列データ
+            smoothing_sigma (float): スムージングの強さを示すσ値 (デフォルトは1)
+            percentile (float): 上位領域を抽出するためのパーセンタイル値 (デフォルトは90)
+
+        Returns:
+            np.ndarray: 最適範囲の座標リスト
+        """
+
+        # 1. スムージング
+        padding = 3
+        padded_auc_data = np.pad(auc_data, pad_width=padding, mode='constant', constant_values=0)
+        smoothed_data = gaussian_filter(padded_auc_data, sigma=smoothing_sigma)[padding:-padding, padding:-padding]  # パディングを除去
+
+        # 2. 上位の領域を抽出（パーセンタイルを利用）
+        threshold = np.percentile(smoothed_data, percentile)
+        binary_map = smoothed_data > threshold
+
+        # 3. 閉じた領域を検出
+        labeled_array, num_features = label(binary_map)
+
+        # 4. 最大の閉じた領域を抽出
+        regions = regionprops(labeled_array)
+        largest_region = max(regions, key=lambda r: r.area)  # 最大の範囲を持つ領域を選択
+        optimal_range_coords = largest_region.coords  # 最適範囲の座標を取得
+
+        max_auc_value = smoothed_data[largest_region.coords[:, 0], largest_region.coords[:, 1]].max()
+        max_auc_coords = largest_region.coords[np.argmax(auc_data[largest_region.coords[:, 0], largest_region.coords[:, 1]])]
+
+        return optimal_range_coords, max_auc_coords
 

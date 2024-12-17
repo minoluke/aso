@@ -78,8 +78,8 @@ class BaseModel(object):
         self.look_forward = look_forward
         self.data_streams = data_streams
         self.data = ObservationData()
-        if any([d not in self.data.df.columns for d in self.data_streams]):
-            raise ValueError("data restricted to any of {}".format(self.data.df.columns))
+        #if any([d not in self.data.df.columns for d in self.data_streams]):
+        #    raise ValueError("data restricted to any of {}".format(self.data.df.columns))
         self.eruption_number = self.data.eruption_number
         if ti is None: ti = self.data.ti
         if tf is None: tf = self.data.tf
