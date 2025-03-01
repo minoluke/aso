@@ -47,7 +47,7 @@ def forecast_dec_1day(od,wl,lf,cv):
     else:
         raise ValueError("Invalid value for 'od'")
 
-    fm = ForecastModel(ti='2010-01-01', tf='2022-12-31', window=float(wl), overlap=0.85, look_forward=float(lf), data_streams=data_streams, od=od)
+    fm = ForecastModel(ti='2010-01-01', tf='2022-12-31', window=float(wl), overlap=0.99, look_forward=float(lf), data_streams=data_streams, od=od)
     
     # columns to manually drop from feature matrix because they are highly correlated to other 
     drop_features = ['linear_trend_timewise','agg_linear_trend']
